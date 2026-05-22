@@ -1,8 +1,8 @@
 # AIR Clinical Incident Intelligence Engine - Tasks & Progress Tracking
 
 **Version:** 1.0.0  
-**Last Updated:** May 20, 2026  
-**Current Phase:** Phase 1 - Data Foundation (Week 1)
+**Last Updated:** May 21, 2026  
+**Current Phase:** Phase 2 - Core Intelligence (Week 3)
 
 ---
 
@@ -21,13 +21,13 @@
 ### Week 1: Project Initialization & Excel Parsing
 
 #### 1.1 Project Structure & Setup
-- [ ] **1.1.1** 📋 Create complete directory structure
-- [ ] **1.1.2** 📋 Initialize Git repository
-- [ ] **1.1.3** 📋 Create pyproject.toml with Poetry
-- [ ] **1.1.4** 📋 Install core dependencies
-- [ ] **1.1.5** 📋 Set up .env and configuration
-- [ ] **1.1.6** 📋 Create GitHub Actions CI/CD skeleton
-- [ ] **1.1.7** 📋 Write README.md with quick start
+- [x] **1.1.1** ✅ Create complete directory structure
+- [x] **1.1.2** ✅ Initialize Git repository
+- [x] **1.1.3** ✅ Create pyproject.toml with Poetry
+- [x] **1.1.4** ✅ Install core dependencies
+- [x] **1.1.5** ✅ Set up .env and configuration
+- [x] **1.1.6** ✅ Create GitHub Actions CI/CD skeleton
+- [x] **1.1.7** ✅ Write README.md with quick start
 
 **Dependencies:**
 ```
@@ -43,98 +43,99 @@ mypy>=1.4.0
 ```
 
 #### 1.2 Data Models
-- [ ] **1.2.1** 📋 Design Incident model
-- [ ] **1.2.2** 📋 Design Patient model
-- [ ] **1.2.3** 📋 Design Surgery model
-- [ ] **1.2.4** 📋 Design Context model
-- [ ] **1.2.5** 📋 Design Outcome model
-- [ ] **1.2.6** 📋 Implement Pydantic validation
-- [ ] **1.2.7** 🔁 Code review: models
+- [x] **1.2.1** ✅ Design Incident model
+- [x] **1.2.2** ✅ Design Patient model
+- [x] **1.2.3** ✅ Design Surgery model
+- [x] **1.2.4** ✅ Design Context model
+- [x] **1.2.5** ✅ Design Outcome model
+- [x] **1.2.6** ✅ Implement Pydantic validation
+- [x] **1.2.7** ✅ Code review: models
 
 **Location:** `src/models/incident.py`
 
 #### 1.3 Excel Parsing Module
-- [ ] **1.3.1** 📋 Design parser architecture
-- [ ] **1.3.2** 📋 Implement column detection
-- [ ] **1.3.3** 📋 Implement row iteration
-- [ ] **1.3.4** 📋 Handle multiple sheets
-- [ ] **1.3.5** 📋 Implement error handling
-- [ ] **1.3.6** 📋 Create parser interface
-- [ ] **1.3.7** 🔁 Code review: parser
+- [x] **1.3.1** ✅ Design parser architecture
+- [x] **1.3.2** ✅ Implement column detection
+- [x] **1.3.3** ✅ Implement row iteration
+- [x] **1.3.4** ✅ Handle multiple sheets
+- [x] **1.3.5** ✅ Implement error handling
+- [x] **1.3.6** ✅ Create parser interface
+- [x] **1.3.7** ✅ Code review: parser
 
 **Location:** `src/ingestion/excel_parser.py`
 
 #### 1.4 Testing & Validation
-- [ ] **1.4.1** 📋 Write unit tests for models
-- [ ] **1.4.2** 📋 Write unit tests for parser
-- [ ] **1.4.3** 📋 Create test fixtures
-- [ ] **1.4.4** 📋 Achieve >80% code coverage
-- [ ] **1.4.5** 📋 Test with sample Excel file
-- [ ] **1.4.6** 🔁 Code review: tests
+- [x] **1.4.1** ✅ Write unit tests for models
+- [x] **1.4.2** ✅ Write unit tests for parser
+- [x] **1.4.3** ✅ Create test fixtures
+- [x] **1.4.4** ✅ Achieve >80% code coverage
+- [x] **1.4.5** ✅ Test with sample Excel file
+- [x] **1.4.6** ✅ Code review: tests
 
 **Location:** `tests/unit/test_models.py`, `tests/unit/test_parsers.py`
 
 #### 1.5 Documentation
-- [ ] **1.5.1** 📋 Write module docstrings
-- [ ] **1.5.2** 📋 Document all classes and functions
-- [ ] **1.5.3** 📋 Create Getting Started guide
-- [ ] **1.5.4** 📋 Document data model structure
+- [x] **1.5.1** ✅ Write module docstrings
+- [x] **1.5.2** ✅ Document all classes and functions
+- [x] **1.5.3** ✅ Create Getting Started guide
+- [x] **1.5.4** ✅ Document data model structure
 
 ---
 
 ### Week 2: Normalization Engine & Validation
 
 #### 2.1 Normalization Engine
-- [ ] **2.1.1** 📋 Design normalization architecture
-- [ ] **2.1.2** 📋 Implement enum standardization
-- [ ] **2.1.3** 📋 Implement boolean normalization
-- [ ] **2.1.4** 📋 Implement date standardization
-- [ ] **2.1.5** 📋 Implement missing value handling
-- [ ] **2.1.6** 📋 Implement surgical taxonomy mapping
-- [ ] **2.1.7** 🔁 Code review: normalization
+- [x] **2.1.1** ✅ Design normalization architecture
+- [x] **2.1.2** ✅ Implement enum standardization
+- [x] **2.1.3** ✅ Implement boolean normalization
+- [x] **2.1.4** ✅ Implement date standardization
+- [x] **2.1.5** ✅ Implement missing value handling
+- [x] **2.1.6** ✅ Implement surgical taxonomy mapping
+- [x] **2.1.7** 🔁 Code review: normalization
 
 **Location:** `src/normalization/engine.py`, `src/normalization/mappers.py`
 
 #### 2.2 Enums & Standards
-- [ ] **2.2.1** 📋 Define incident type taxonomy
-- [ ] **2.2.2** 📋 Define severity levels
-- [ ] **2.2.3** 📋 Define outcome categories
-- [ ] **2.2.4** 📋 Define surgical branches
-- [ ] **2.2.5** 📋 Define monitoring types
+- [x] **2.2.1** ✅ Define incident type taxonomy
+- [x] **2.2.2** ✅ Define severity levels
+- [x] **2.2.3** ✅ Define outcome categories
+- [x] **2.2.4** ✅ Define surgical branches
+- [x] **2.2.5** ✅ Define monitoring types
 
 **Location:** `src/normalization/enums.py`
 
 #### 2.3 Schema Validation
-- [ ] **2.3.1** 📋 Design validation strategy
-- [ ] **2.3.2** 📋 Create JSON schemas for validation
-- [ ] **2.3.3** 📋 Implement Pydantic validators
-- [ ] **2.3.4** 📋 Create validation error reporting
-- [ ] **2.3.5** 🔁 Code review: validation
+- [x] **2.3.1** ✅ Design validation strategy
+- [x] **2.3.2** ✅ Create JSON schemas for validation
+- [x] **2.3.3** ✅ Implement Pydantic validators
+- [x] **2.3.4** ✅ Create validation error reporting
+- [x] **2.3.5** 🔁 Code review: validation
 
 **Location:** `src/ingestion/validators.py`
 
 #### 2.4 AI Analysis Model
-- [ ] **2.4.1** 📋 Design AIAnalysis model
-- [ ] **2.4.2** 📋 Define output fields
-- [ ] **2.4.3** 📋 Create validation rules
-- [ ] **2.4.4** 🔁 Code review: AI model
+- [x] **2.4.1** ✅ Design AIAnalysis model
+- [x] **2.4.2** ✅ Define output fields
+- [x] **2.4.3** ✅ Create validation rules
+- [x] **2.4.4** 🔁 Code review: AI model
+
 
 **Location:** `src/models/analysis.py`
 
 #### 2.5 Integration & Testing
-- [ ] **2.5.1** 📋 Write unit tests for normalization
-- [ ] **2.5.2** 📋 Write integration tests (parse → normalize)
-- [ ] **2.5.3** 📋 Test edge cases (missing, mixed types, invalid)
-- [ ] **2.5.4** 📋 Achieve >85% code coverage
-- [ ] **2.5.5** 📋 Validate output against Pydantic models
+- [x] **2.5.1** ✅ Write unit tests for normalization
+- [x] **2.5.2** ✅ Write integration tests (parse → normalize)
+- [x] **2.5.3** ✅ Test edge cases (missing, mixed types, invalid)
+- [x] **2.5.4** ✅ Achieve >85% code coverage
+- [x] **2.5.5** ✅ Validate output against Pydantic models
 
 **Location:** `tests/unit/test_normalization.py`, `tests/integration/test_pipeline.py`
 
 #### 2.6 Documentation
-- [ ] **2.6.1** 📋 Write Data Model Reference guide
-- [ ] **2.6.2** 📋 Document all enums
-- [ ] **2.6.3** 📋 Document normalization rules
-- [ ] **2.6.4** 📋 Document validation rules
+- [x] **2.6.1** ✅ Write Data Model Reference guide
+- [x] **2.6.2** ✅ Document all enums
+- [x] **2.6.3** ✅ Document normalization rules
+- [x] **2.6.4** ✅ Document validation rules
 
 ---
 
@@ -143,74 +144,76 @@ mypy>=1.4.0
 ### Week 3: Incident Understanding Agent
 
 #### 3.1 Clinical Understanding Agent
-- [ ] **3.1.1** ⏸️ Design LLM prompts and system instructions
-- [ ] **3.1.2** ⏸️ Implement incident understanding logic
-- [ ] **3.1.3** ⏸️ Create clinical reasoning framework
-- [ ] **3.1.4** ⏸️ Integrate LLM API (GPT-4)
-- [ ] **3.1.5** ⏸️ Implement response parsing
-- [ ] **3.1.6** ⏸️ Create error handling for LLM calls
+- [x] **3.1.1** ✅ Design LLM prompts and system instructions
+- [x] **3.1.2** ✅ Implement incident understanding logic
+- [x] **3.1.3** ✅ Create clinical reasoning framework
+- [x] **3.1.4** ✅ Integrate LLM API (GPT-4)
+- [x] **3.1.5** ✅ Implement response parsing
+- [x] **3.1.6** ✅ Create error handling for LLM calls
 
 **Location:** `src/incident/understanding_agent.py`
 
 **Depends on:** Phase 1 completion
 
 #### 3.2 Multi-Label Classification
-- [ ] **3.2.1** ⏸️ Implement incident type classifier
-- [ ] **3.2.2** ⏸️ Create classification taxonomy
-- [ ] **3.2.3** ⏸️ Implement confidence scoring
-- [ ] **3.2.4** ⏸️ Create post-processing logic
+- [x] **3.2.1** ✅ Implement incident type classifier
+- [x] **3.2.2** ✅ Create classification taxonomy
+- [x] **3.2.3** ✅ Implement confidence scoring
+- [x] **3.2.4** ✅ Create post-processing logic
 
 **Location:** `src/incident/classifiers.py`
 
 #### 3.3 Severity Analysis
-- [ ] **3.3.1** ⏸️ Design severity analysis logic
-- [ ] **3.3.2** ⏸️ Implement severity levels (Low/Moderate/High/Critical)
-- [ ] **3.3.3** ⏸️ Create severity scoring rules
-- [ ] **3.3.4** ⏸️ Integrate with incident understanding
+- [x] **3.3.1** ✅ Design severity analysis logic
+- [x] **3.3.2** ✅ Implement severity levels (Low/Moderate/High/Critical)
+- [x] **3.3.3** ✅ Create severity scoring rules
+- [x] **3.3.4** ✅ Integrate with incident understanding
 
 **Location:** `src/incident/severity_analyzer.py`
 
 #### 3.4 Testing & Validation
-- [ ] **3.4.1** ⏸️ Write unit tests with mock LLM
-- [ ] **3.4.2** ⏸️ Write integration tests with real LLM
-- [ ] **3.4.3** ⏸️ Validate taxonomy consistency
-- [ ] **3.4.4** ⏸️ Domain expert review of sample outputs
-- [ ] **3.4.5** ⏸️ Achieve >80% domain expert agreement
+ - [x] **3.4.1** ✅ Write unit tests with mock LLM
+ - [x] **3.4.2** ✅ Write integration tests with real LLM (guarded)
+ - [x] **3.4.3** ✅ Validate taxonomy consistency
+ - [~] **3.4.4** 🔄 Domain expert review script created (awaiting review)
+ - [ ] **3.4.5** ⏸️ Achieve >80% domain expert agreement
 
 ---
 
 ### Week 4: Validation Layer & Root Cause Analysis
 
+**Status Update (May 22, 2026):** Persistence scaffold (opt-in) created; validation agent, retry logic, reporting, output constraints, and RCA are now in place for Week 4.
+
 #### 4.1 Validation Agent
-- [ ] **4.1.1** ⏸️ Design validation logic
-- [ ] **4.1.2** ⏸️ Implement contradiction detection
-- [ ] **4.1.3** ⏸️ Create JSON schema validation
-- [ ] **4.1.4** ⏸️ Implement retry logic
-- [ ] **4.1.5** ⏸️ Create validation reporting
+- [x] **4.1.1** ✅ Design validation logic
+- [x] **4.1.2** ✅ Implement contradiction detection
+- [x] **4.1.3** ✅ Create JSON schema validation
+- [x] **4.1.4** ✅ Implement retry logic
+- [x] **4.1.5** ✅ Create validation reporting
 
 **Location:** `src/validation/validator_agent.py`
 
 #### 4.2 Validation Rules
-- [ ] **4.2.1** ⏸️ Define contradiction rules
-- [ ] **4.2.2** ⏸️ Define required field rules
-- [ ] **4.2.3** ⏸️ Define confidence thresholds
-- [ ] **4.2.4** ⏸️ Define output constraints
+- [x] **4.2.1** ✅ Define contradiction rules
+- [x] **4.2.2** ✅ Define required field rules
+- [x] **4.2.3** ✅ Define confidence thresholds
+- [x] **4.2.4** ✅ Define output constraints
 
 **Location:** `src/validation/schemas.py`
 
 #### 4.3 Root Cause Analysis
-- [ ] **4.3.1** ⏸️ Design RCA framework
-- [ ] **4.3.2** ⏸️ Implement systemic failure detection
-- [ ] **4.3.3** ⏸️ Create contributing factor analysis
-- [ ] **4.3.4** ⏸️ Implement learning generation
+- [x] **4.3.1** ✅ Design RCA framework
+- [x] **4.3.2** ✅ Implement systemic failure detection
+- [x] **4.3.3** ✅ Create contributing factor analysis
+- [x] **4.3.4** ✅ Implement learning generation
 
 **Location:** `src/incident/root_cause_analyzer.py`
 
 #### 4.4 Testing & Validation
-- [ ] **4.4.1** ⏸️ Unit tests for validation logic
-- [ ] **4.4.2** ⏸️ Test contradiction detection
-- [ ] **4.4.3** ⏸️ Validate zero hallucination rate
-- [ ] **4.4.4** ⏸️ Integration tests with full pipeline
+- [x] **4.4.1** ✅ Unit tests for validation logic
+- [x] **4.4.2** ✅ Test contradiction detection
+- [x] **4.4.3** ✅ Validate zero hallucination rate
+- [x] **4.4.4** ✅ Integration tests with full pipeline
 
 ---
 

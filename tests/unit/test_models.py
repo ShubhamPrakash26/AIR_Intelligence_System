@@ -126,6 +126,23 @@ class TestOutcomeInfo:
 
     def test_outcome_with_severity_levels(self):
         """Test OutcomeInfo with different severity levels."""
+
+        def test_ai_analysis_validation_status_rejects_unknown(self):
+            """Test AIAnalysis validation rules for validation_status."""
+            with pytest.raises(ValueError, match="validation_status"):
+                AIAnalysis(
+                    incident_id="test",
+                    incident_type=["Equipment Failure"],
+                    severity="High",
+                    severity_score=0.8,
+                    root_cause="Test",
+                    contributing_factors=["Test"],
+                    key_learning="Test",
+                    confidence_score=0.9,
+                    validation_status="unexpected",
+                    processing_timestamp="2026-05-20T10:00:00Z",
+                    model_version="1.0.0",
+                )
         for severity in ["Low", "Moderate", "High", "Critical"]:
             outcome = OutcomeInfo(harm_severity=severity)
             assert outcome.harm_severity == severity

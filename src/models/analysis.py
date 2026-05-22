@@ -1,6 +1,60 @@
 """Data models for AI analysis outputs."""
 
-from pydantic import BaseModel, Field, ConfigDict
+from __future__ import annotations
+
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from src.normalization.enums import IncidentType, SeverityLevel
+
+
+class IncidentUnderstandingResponse(BaseModel):
+    """Strict JSON contract expected from the LLM layer.
+
+    The agent converts this structured response into the richer AIAnalysis
+    output model after validation.
+    """
+
+    incident_type: list[IncidentType] = Field(..., min_length=1, description="Canonical incident types")
+    severity: SeverityLevel = Field(..., description="Canonical severity level")
+    severity_score: float = Field(..., ge=0, le=1, description="Numerical severity score (0-1)")
+    root_cause: str = Field(..., min_length=1, description="Systemic root cause")
+    contributing_factors: list[str] = Field(..., min_length=1, description="Contributing factors")
+    contributing_factor_categories: list[IncidentType] | None = Field(
+        None, description="Canonical contributing factor categories"
+    )
+    key_learning: str = Field(..., min_length=1, description="Key preventive learning")
+    preventive_recommendations: list[str] | None = Field(
+        None, description="Specific preventive recommendations"
+    )
+    confidence_score: float = Field(..., ge=0, le=1, description="Confidence in the analysis (0-1)")
+    processing_notes: str | None = Field(None, description="Additional notes from the model")
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate_semantics(self) -> "IncidentUnderstandingResponse":
+        if not self.incident_type:
+            raise ValueError("incident_type must not be empty")
+        if not self.contributing_factors:
+            raise ValueError("contributing_factors must not be empty")
+        return self
+
+
+class IncidentAnalysisBatchResponse(BaseModel):
+    """Explicit response model for incident analysis endpoints."""
+
+    count: int = Field(..., ge=0, description="Number of incidents analyzed")
+    analyses: list["AIAnalysis"] = Field(..., description="Per-incident analysis results")
+
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="after")
+    def _validate_batch(self) -> "IncidentAnalysisBatchResponse":
+        if self.count != len(self.analyses):
+            raise ValueError("count must match the number of analyses")
+        return self
 
 
 class AIAnalysis(BaseModel):
@@ -63,6 +117,13 @@ class AIAnalysis(BaseModel):
             }
         }
     )
+
+    @model_validator(mode="after")
+    def _validate_model(self) -> "AIAnalysis":
+        allowed_statuses = {"pending", "valid", "invalid", "needs_review"}
+        if self.validation_status not in allowed_statuses:
+            raise ValueError(f"validation_status must be one of {sorted(allowed_statuses)}")
+        return self
 
 
 class Theme(BaseModel):

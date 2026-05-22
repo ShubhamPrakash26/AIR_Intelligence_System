@@ -1,0 +1,180 @@
+{
+  "info": {
+    "_postman_id": "air-intelligence-system-collection",
+    "name": "AIR Intelligence API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000"
+    },
+    {
+      "key": "incident_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/healthz"
+        }
+      }
+    },
+    {
+      "name": "Ingest Excel (parsed incidents)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/incidents/ingest/excel"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (Array.isArray(body) && body.length > 0 && body[0].incident_id) {",
+              "  pm.collectionVariables.set('incident_id', body[0].incident_id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analyze Excel (analysis output)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/incidents/analyze/excel"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (Array.isArray(body) && body.length > 0 && body[0].incident_id) {",
+              "  pm.collectionVariables.set('incident_id', body[0].incident_id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analyze Parsed Incidents (JSON)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "[{\n  \"incident_id\": \"<uuid>\",\n  \"patient\": { \"age_range\": \"21-30 years\", \"sex\": \"Female\" },\n  \"surgery\": { \"type_of_procedure\": \"Elective\", \"surgical_branch\": \"Gynecology\", \"procedure\": \"DHC\" },\n  \"incident\": { \"incident_description\": \"Insufflator malfunction during laparoscopy\" },\n  \"anesthesia\": { \"primary_technique\": \"General Anesthesia\", \"monitoring\": [\"ECG\", \"Capnograph\"] },\n  \"outcome\": { \"outcome_category\": \"E\", \"patient_safety\": \"Anesthetic delivered - surgery not done\" },\n  \"metadata\": { \"source_file\": \"manual_input\" }\n}]"
+        },
+        "url": {
+          "raw": "{{base_url}}/incidents/analyze"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "if (body && body.analyses && body.analyses.length > 0 && body.analyses[0].incident_id) {",
+              "  pm.collectionVariables.set('incident_id', body.analyses[0].incident_id);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List Stored Incidents",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/incidents/"
+        }
+      }
+    },
+    {
+      "name": "List Stored Incidents (alias)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/incidents/stored/"
+        }
+      }
+    },
+    {
+      "name": "Get Stored Incident By ID",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/incidents/{{incident_id}}"
+        }
+      }
+    },
+    {
+      "name": "Ingest PDF (placeholder)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/incidents/ingest/pdf"
+        }
+      }
+    }
+  ]
+}

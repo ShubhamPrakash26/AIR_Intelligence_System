@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     confidence_threshold: float = 0.7
     validation_retries: int = 3
 
+    # Persistence
+    enable_persistence: bool = False
+    database_url: str = "sqlite:///./air.db"
+
     # Clustering
     clustering_algorithm: str = "hdbscan"
     min_cluster_size: int = 5
