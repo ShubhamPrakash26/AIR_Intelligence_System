@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-The AIR Clinical Incident Intelligence Engine project has moved beyond the initial foundation into the core intelligence layer. Weeks 1-4 are implemented and validated, including parsing, normalization, incident understanding, validation, and root cause analysis.
+The AIR Clinical Incident Intelligence Engine project has moved beyond the initial foundation into the core intelligence layer. Weeks 1-4 are implemented and validated in code, including parsing, normalization, incident understanding, validation, and root cause analysis. The only remaining Week 3 item is the external domain expert review step.
 
 ### Key Metrics
 
@@ -375,7 +375,7 @@ The system includes a sample incident report (from the provided PDF):
 - ✅ All completed
 
 ### For Week 5 (Phase 2)
-- 📋 OpenAI API key (for LLM testing)
+- 📋 Anthropic API key (for Claude testing)
 - 📋 Qdrant (vector database)
 - 📋 LangGraph (orchestration)
 

@@ -88,19 +88,18 @@ class IncidentUnderstandingAgent:
         return UnderstandingResult(analysis=analysis)
 
     def _build_default_llm(self) -> Any | None:
-        if not settings.openai_api_key:
+        if not settings.anthropic_api_key:
             return None
 
         try:
-            from langchain_openai import ChatOpenAI
+            from langchain_anthropic import ChatAnthropic
         except Exception:
             return None
 
-        return ChatOpenAI(
+        return ChatAnthropic(
             model=settings.llm_model,
-            temperature=settings.temperature,
             max_tokens=settings.max_tokens,
-            api_key=settings.openai_api_key,
+            api_key=settings.anthropic_api_key,
         )
 
     def _build_structured_llm(self, llm: Any | None) -> Any | None:
@@ -234,8 +233,11 @@ class IncidentUnderstandingAgent:
             analysis.severity = str(payload_dump["severity"])
         if "severity_score" in payload_dump:
             analysis.severity_score = float(payload_dump["severity_score"])
-        if "root_cause" in payload_dump:
-            analysis.root_cause = str(payload_dump["root_cause"])
+        # Preserve the deterministic RCA-derived `root_cause` for consistency.
+        # Do not override it with the LLM's (often verbose) `root_cause` field,
+        # which can vary by model and reduce test determinism.
+        # If you want LLM-suggested root causes in future, add a separate
+        # field such as `llm_root_cause` and keep RCA as the canonical value.
         if "contributing_factors" in payload_dump:
             analysis.contributing_factors = list(payload_dump["contributing_factors"])
         if "contributing_factor_categories" in payload_dump and payload_dump["contributing_factor_categories"] is not None:

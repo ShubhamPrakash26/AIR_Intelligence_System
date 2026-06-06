@@ -103,7 +103,7 @@ Project layout (high level)
 
 Configuration
 - Environment variables are loaded via Pydantic Settings. Required values:
-  - `OPENAI_API_KEY` — (for Phase 2+ LLM integration)
+  - `ANTHROPIC_API_KEY` — (for Phase 2+ LLM integration)
   - `QDRANT_URL`, `QDRANT_API_KEY` — (for Phase 3 vector store)
 - Use `.env.example` as the template and **never** commit secrets.
 

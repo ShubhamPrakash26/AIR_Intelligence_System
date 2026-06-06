@@ -1,7 +1,7 @@
 # AIR Clinical Incident Intelligence Engine
 
 **Version:** 1.0.0  
-**Status:** Development Phase 1 - Data Foundation
+**Status:** Phase 2 - Core Intelligence (Week 4 Complete)
 
 ## Overview
 
@@ -29,7 +29,7 @@ The AIR Clinical Incident Intelligence Engine is a standalone AI-powered clinica
 - Poetry (Python dependency manager)
 - Git
 - Qdrant (vector database)
-- OpenAI API Key (for GPT-4 access)
+- Anthropic API Key (for Claude access)
 
 ### Installation
 
@@ -118,8 +118,8 @@ AIR_Intelligence_System/
 - [ ] Schema validation
 
 ### Phase 2: Core Intelligence (Weeks 3-5) ⏳
-- [ ] Incident understanding agent
-- [ ] Validation layer
+- [x] Incident understanding agent
+- [x] Validation layer
 - [ ] Embedding generation
 - [ ] Vector store integration
 
@@ -225,9 +225,9 @@ poetry run mypy src/
 All configuration is managed via environment variables. See [.env.example](.env.example) for all available settings.
 
 Key settings:
-- `OPENAI_API_KEY` - Your OpenAI API key for GPT-4
+- `ANTHROPIC_API_KEY` - Your Anthropic API key for Claude
 - `QDRANT_URL` - Vector database connection URL
-- `LLM_MODEL` - Language model to use (default: gpt-4)
+- `LLM_MODEL` - Language model to use (default: claude-sonnet-4-6)
 - `CONFIDENCE_THRESHOLD` - Minimum confidence for validation (default: 0.7)
 
 ## Contributing

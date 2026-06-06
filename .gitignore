@@ -141,3 +141,5 @@ data/embeddings/
 # Qdrant
 vector_db/
 qdrant_storage/
+
+AnhtropicKey

@@ -110,7 +110,7 @@ Phase 6: Production Readiness (Weeks 15-16)
 
 **Key Decisions:**
 - Use LangGraph for orchestration? (Yes, decided)
-- Which LLM for initial MVP? (GPT-4)
+- Which LLM for initial MVP? (Claude Opus 4.7)
 - Prompt engineering approach? (Few-shot examples + system prompt)
 
 **Acceptance Criteria:**
@@ -693,7 +693,7 @@ Editorial review
 ### Tools & Services
 - Python 3.11+ environment
 - Qdrant (self-hosted or Qdrant Cloud)
-- OpenAI API (GPT-4) or local LLM
+- Anthropic API (Claude Sonnet) or local LLM
 - Git + GitHub
 - Docker
 - Optional: Cloud infrastructure (AWS/GCP/Azure) for deployment

@@ -183,6 +183,32 @@ files = [
 ]
 
 [[package]]
+name = "anthropic"
+version = "0.34.2"
+description = "The official Python library for the anthropic API"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "anthropic-0.34.2-py3-none-any.whl", hash = "sha256:f50a628eb71e2c76858b106c8cbea278c45c6bd2077cb3aff716a112abddc9fc"},
+    {file = "anthropic-0.34.2.tar.gz", hash = "sha256:808ea19276f26646bfde9ee535669735519376e4eeb301a2974fc69892be1d6e"},
+]
+
+[package.dependencies]
+anyio = ">=3.5.0,<5"
+distro = ">=1.7.0,<2"
+httpx = ">=0.23.0,<1"
+jiter = ">=0.4.0,<1"
+pydantic = ">=1.9.0,<3"
+sniffio = "*"
+tokenizers = ">=0.13.0"
+typing-extensions = ">=4.7,<5"
+
+[package.extras]
+bedrock = ["boto3 (>=1.28.57)", "botocore (>=1.31.57)"]
+vertex = ["google-auth (>=2,<3)"]
+
+[[package]]
 name = "anyio"
 version = "4.13.0"
 description = "High-level concurrency and networking framework on top of asyncio or Trio"
@@ -1000,7 +1026,7 @@ version = "0.7.1"
 description = "XML bomb protection for Python stdlib modules"
 optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*"
-groups = ["dev"]
+groups = ["main", "dev"]
 files = [
     {file = "defusedxml-0.7.1-py2.py3-none-any.whl", hash = "sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61"},
     {file = "defusedxml-0.7.1.tar.gz", hash = "sha256:1bb3032db185915b62d7c6209c5a8792be6a32ab2fedacc84e01b52c51aa3e69"},
@@ -2414,6 +2440,23 @@ SQLAlchemy = ">=1.4,<3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<9.0.0"
 
 [[package]]
+name = "langchain-anthropic"
+version = "0.1.23"
+description = "An integration package connecting AnthropicMessages and LangChain"
+optional = false
+python-versions = "<4.0,>=3.8.1"
+groups = ["main"]
+files = [
+    {file = "langchain_anthropic-0.1.23-py3-none-any.whl", hash = "sha256:89cafdaf4c9e522484b0ca8bafcceb0a5e4ffca89f7c7c9cec1e2ba411208208"},
+    {file = "langchain_anthropic-0.1.23.tar.gz", hash = "sha256:f2ce045bd0ae09d5f11fed4b84a38ce306822b7bcac77232345f40115df66d51"},
+]
+
+[package.dependencies]
+anthropic = ">=0.30.0,<1"
+defusedxml = ">=0.7.1,<0.8.0"
+langchain-core = ">=0.2.26,<0.3.0"
+
+[[package]]
 name = "langchain-core"
 version = "0.2.43"
 description = "Building applications with LLMs through composability"
@@ -2436,23 +2479,6 @@ pydantic = [
 PyYAML = ">=5.3"
 tenacity = ">=8.1.0,<8.4.0 || >8.4.0,<9.0.0"
 typing-extensions = ">=4.7"
-
-[[package]]
-name = "langchain-openai"
-version = "0.1.25"
-description = "An integration package connecting OpenAI and LangChain"
-optional = false
-python-versions = "<4.0,>=3.8.1"
-groups = ["main"]
-files = [
-    {file = "langchain_openai-0.1.25-py3-none-any.whl", hash = "sha256:f0b34a233d0d9cb8fce6006c903e57085c493c4f0e32862b99063b96eaedb109"},
-    {file = "langchain_openai-0.1.25.tar.gz", hash = "sha256:eb116f744f820247a72f54313fb7c01524fba0927120d4e899e5e4ab41ad3928"},
-]
-
-[package.dependencies]
-langchain-core = ">=0.2.40,<0.3.0"
-openai = ">=1.40.0,<2.0.0"
-tiktoken = ">=0.7,<1"
 
 [[package]]
 name = "langchain-text-splitters"
@@ -3797,34 +3823,6 @@ files = [
     {file = "nvidia_nvtx_cu12-12.6.77-py3-none-manylinux2014_x86_64.whl", hash = "sha256:6574241a3ec5fdc9334353ab8c479fe75841dbe8f4532a8fc97ce63503330ba1"},
     {file = "nvidia_nvtx_cu12-12.6.77-py3-none-win_amd64.whl", hash = "sha256:2fb11a4af04a5e6c84073e6404d26588a34afd35379f0855a99797897efa75c0"},
 ]
-
-[[package]]
-name = "openai"
-version = "1.109.1"
-description = "The official Python library for the openai API"
-optional = false
-python-versions = ">=3.8"
-groups = ["main"]
-files = [
-    {file = "openai-1.109.1-py3-none-any.whl", hash = "sha256:6bcaf57086cf59159b8e27447e4e7dd019db5d29a438072fbd49c290c7e65315"},
-    {file = "openai-1.109.1.tar.gz", hash = "sha256:d173ed8dbca665892a6db099b4a2dfac624f94d20a93f46eb0b56aae940ed869"},
-]
-
-[package.dependencies]
-anyio = ">=3.5.0,<5"
-distro = ">=1.7.0,<2"
-httpx = ">=0.23.0,<1"
-jiter = ">=0.4.0,<1"
-pydantic = ">=1.9.0,<3"
-sniffio = "*"
-tqdm = ">4"
-typing-extensions = ">=4.11,<5"
-
-[package.extras]
-aiohttp = ["aiohttp", "httpx-aiohttp (>=0.1.8)"]
-datalib = ["numpy (>=1)", "pandas (>=1.2.3)", "pandas-stubs (>=1.1.0.11)"]
-realtime = ["websockets (>=13,<16)"]
-voice-helpers = ["numpy (>=2.0.2)", "sounddevice (>=0.5.1)"]
 
 [[package]]
 name = "openpyxl"
@@ -6915,4 +6913,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "4144f1a6d8d120f937c3b4c5e399f30b195320846b4afaab235a195eef13e3b7"
+content-hash = "fe23273d224d5e9770f6ad86d48fd683c5609b0f88c41b0b81d55307e039319e"

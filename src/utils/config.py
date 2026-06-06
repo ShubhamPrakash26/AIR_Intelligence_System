@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     api_reload: bool = False
 
     # LLM Configuration
-    openai_api_key: str | None = None
-    llm_model: str = "gpt-4"
+    anthropic_api_key: str | None = None
+    llm_model: str = "claude-sonnet-4-6"
     temperature: float = 0.7
     max_tokens: int = 2000
 

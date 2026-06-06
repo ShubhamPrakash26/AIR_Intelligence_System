@@ -558,7 +558,7 @@ class VectorMetadata(BaseModel):
 | **PDF Processing** | LlamaParse | LlamaParse | Layout-aware parsing |
 | **OCR** | Tesseract | Tesseract | Open-source, reliable |
 | **Excel Processing** | pandas | pandas | Standard library |
-| **LLM (Initial)** | GPT-4 | GPT-4 | High reasoning capability |
+| **LLM (Initial)** | Claude Opus 4.7 | Claude Opus 4.7 | High reasoning capability |
 | **LLM (Future)** | Qwen 2.5 72B | Qwen 2.5 | Open-source alternative |
 
 ### Development Tools

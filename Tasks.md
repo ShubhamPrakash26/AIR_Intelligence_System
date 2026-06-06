@@ -147,7 +147,7 @@ mypy>=1.4.0
 - [x] **3.1.1** ✅ Design LLM prompts and system instructions
 - [x] **3.1.2** ✅ Implement incident understanding logic
 - [x] **3.1.3** ✅ Create clinical reasoning framework
-- [x] **3.1.4** ✅ Integrate LLM API (GPT-4)
+- [x] **3.1.4** ✅ Integrate LLM API (Claude Sonnet)
 - [x] **3.1.5** ✅ Implement response parsing
 - [x] **3.1.6** ✅ Create error handling for LLM calls
 
