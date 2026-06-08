@@ -15,5 +15,7 @@ async def healthz():
 
 # Include incident routes
 from src.api.incidents import router as incidents_router
+from src.api.retrieval import router as retrieval_router
 
 app.include_router(incidents_router)
+app.include_router(retrieval_router)

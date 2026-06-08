@@ -1,21 +1,22 @@
 # AIR Intelligence System - Development Status
 
-**Last Updated:** May 22, 2026  
-**Phase:** Phase 2 - Core Intelligence (Week 4 Complete)  
-**Overall Progress:** 25% Complete (Week 4 of 16)
+**Last Updated:** June 6, 2026  
+**Phase:** Phase 3 - Retrieval & Discovery (Week 6 Complete)  
+**Overall Progress:** 37% Complete (Week 6 of 16)
 
 ---
 
 ## Executive Summary
 
-The AIR Clinical Incident Intelligence Engine project has moved beyond the initial foundation into the core intelligence layer. Weeks 1-4 are implemented and validated in code, including parsing, normalization, incident understanding, validation, and root cause analysis. The only remaining Week 3 item is the external domain expert review step.
+The AIR Clinical Incident Intelligence Engine project has completed Phase 3 Week 6 Retrieval & Discovery. Weeks 1-6 are implemented and validated in code, including parsing, normalization, incident understanding, validation, root cause analysis, embedding generation, Qdrant vector store integration, semantic similarity search, cross-encoder reranking, and RAG context generation. The full pipeline from parse → analyze → embed → store → search → rerank → format is now operational.
 
 ### Key Metrics
 
-- **Files Created:** 40+
-- **Lines of Code:** ~4,000+
-- **Automated Tests Passing:** 86 (1 skipped)
-- **Current Coverage:** 90%
+- **Files Created:** 57+
+- **Lines of Code:** ~6,800+
+- **Automated Tests Passing:** 212 (1 skipped — LLM integration, guarded by API key)
+- **New Week 6 Tests:** 73 (24 similarity search unit + 14 reranker unit + 23 RAG unit + 12 retrieval integration)
+- **Current Coverage:** 91%
 - **Documentation:** 4 comprehensive guides + 7 detailed documents
 - **Code Quality:** Type-hinted, fully documented, linted
 
@@ -188,6 +189,70 @@ The AIR Clinical Incident Intelligence Engine project has moved beyond the initi
 
 **Files:** src/validation/validator_agent.py, src/validation/schemas.py, src/incident/root_cause_analyzer.py
 
+### 10. Week 5: Embedding Generation & Vector Integration ✅
+
+**Status:** Complete and validated — June 6, 2026
+
+- [x] EmbeddingEngine with lazy-loaded BGE-M3 (sentence-transformers)
+- [x] Batch embedding with configurable batch size
+- [x] Rich embed text builder combining incident narrative + AI analysis fields
+- [x] EmbeddingResult dataclass with dimension validation
+- [x] Model dimension registry (SUPPORTED_MODELS dict)
+- [x] VectorMetadata extraction from Incident + AIAnalysis
+- [x] QdrantHandler: collection creation, upsert (single + batch), cosine search, delete
+- [x] search() uses qdrant-client 1.9.x `query_points()` API with payload filters
+- [x] In-memory Qdrant support for testing (no server required)
+- [x] 53 new tests: 24 embedding unit + 21 vector store unit + 8 integration
+
+**Files:**
+- src/embeddings/models.py — EmbeddingResult, SUPPORTED_MODELS, get_model_dimension
+- src/embeddings/engine.py — EmbeddingEngine (lazy-load, batch, build_embed_text)
+- src/vector_store/metadata.py — extract_metadata(), build_payload()
+- src/vector_store/qdrant_handler.py — QdrantHandler, SearchResult
+- tests/unit/test_week5_embeddings.py
+- tests/unit/test_week5_vector_store.py
+- tests/integration/test_week5_pipeline.py
+
+**Design decisions:**
+- Model loaded lazily (no 2 GB download on import)
+- Actual vector dimension detected from model on first encode (overrides registry default)
+- UUID incident IDs used directly as Qdrant point IDs (validated via `uuid.UUID()`)
+- `build_embed_text` omits duplicate fields (details == description skipped)
+- Metadata fallback when analysis is not yet available
+
+### 11. Week 6: Similarity Search & Retrieval ✅
+
+**Status:** Complete and validated — June 6, 2026
+
+- [x] SimilaritySearchEngine with search_by_text, search_by_incident, search_by_vector, search_similar_to_stored
+- [x] SearchFilters with Qdrant-native filter building (MatchValue for scalars, MatchAny for array-contains)
+- [x] SimilaritySearchResult with 1-based rank, metadata convenience properties, cosine score
+- [x] QdrantHandler extended with search_with_filter() and search_similar_to_stored()
+- [x] CrossEncoderReranker wrapping bge-reranker-large with lazy model load and threshold filtering
+- [x] RerankResult preserving both original_rank and rerank_rank for comparison
+- [x] RAGRetriever combining search + optional reranking into RetrievedContext
+- [x] format_context() producing plain-text LLM-injectable blocks (query header, numbered incidents, scores)
+- [x] 73 new tests: 24 similarity search unit + 14 reranker unit + 23 RAG unit + 12 retrieval integration
+
+**Files:**
+- src/retrieval/similarity_search.py — SearchFilters, SimilaritySearchResult, SimilaritySearchEngine
+- src/retrieval/reranker.py — CrossEncoderReranker, RerankResult
+- src/retrieval/rag.py — RAGRetriever, RetrievedContext
+- src/retrieval/__init__.py — Public API
+- src/vector_store/qdrant_handler.py — Extended with Week 6 search methods
+- tests/unit/test_week6_similarity_search.py
+- tests/unit/test_week6_reranker.py
+- tests/unit/test_week6_rag.py
+- tests/integration/test_week6_retrieval_pipeline.py
+
+**Design decisions:**
+- incident_type uses MatchAny (array-contains) because stored as list; other fields use MatchValue (scalar equality)
+- search_similar_to_stored passes UUID to Qdrant directly — no re-embedding needed
+- Python-side _apply_python_filter handles post-hoc filtering for search_similar_to_stored
+- result_to_text() serialises metadata as readable text for cross-encoder; outputs "No metadata available." fallback
+- RAGRetriever warns (not errors) when rerank=True but no reranker is configured
+- All model loading is lazy (inject stub in tests); no multi-GB downloads in CI
+
 ---
 
 ## Current State of Each Component
@@ -204,17 +269,61 @@ The AIR Clinical Incident Intelligence Engine project has moved beyond the initi
 | Incident Understanding | ✅ Complete | Week 3 delivered |
 | Validation Layer | ✅ Complete | Week 4 delivered |
 | Root Cause Analysis | ✅ Complete | Week 4 delivered |
-| Testing Framework | ✅ Complete | Ready for Week 5 |
+| Embedding Engine | ✅ Complete | Week 5 delivered + Postman validated |
+| Vector Store (Qdrant) | ✅ Complete | Week 5 delivered + Postman validated |
+| Similarity Search | ✅ Complete | Week 6 delivered + Postman validated |
+| Cross-Encoder Reranker | ✅ Complete | Week 6 delivered + unit tested |
+| RAG Retriever | ✅ Complete | Week 6 delivered + Postman validated |
+| Retrieval API | ✅ Complete | src/api/retrieval.py (6 endpoints) |
+| Testing Framework | ✅ Complete | 212 passing |
 
 ### Phases 2-6
 
 | Phase | Status | Duration | Start |
 |-------|--------|----------|-------|
-| Phase 2: Core Intelligence | 🔄 In Progress | Weeks 3-5 | May 27, 2026 |
-| Phase 3: Retrieval & Discovery | 📋 Planned | Weeks 6-8 | June 17, 2026 |
+| Phase 2: Core Intelligence | ✅ Complete | Weeks 3-5 | June 6, 2026 |
+| Phase 3: Retrieval & Discovery | 🔄 In Progress | Weeks 6-8 | June 6, 2026 |
 | Phase 4: Insight Generation | 📋 Planned | Weeks 9-11 | July 8, 2026 |
 | Phase 5: PDF & Advanced | 📋 Planned | Weeks 12-14 | July 29, 2026 |
 | Phase 6: Production Ready | 📋 Planned | Weeks 15-16 | August 19, 2026 |
+
+---
+
+## Manual Validation Log
+
+### Week 5 + Week 6 — Postman Live Testing (June 6, 2026)
+
+All retrieval endpoints validated manually against a live FastAPI server (`uvicorn src.api.main:app --reload`).
+
+| Endpoint | Test | Result |
+|----------|------|--------|
+| `GET /retrieval/status` | Check model name + collection stats | PASS |
+| `POST /retrieval/ingest` | JSON body with 1 incident | PASS — returned `ingested: 1`, correct UUID |
+| `POST /retrieval/ingest/excel` | Upload Log.xlsx | PASS — parsed and stored all incidents |
+| `POST /retrieval/search` | Text query, no filter | PASS — returned ranked results with scores |
+| `POST /retrieval/search` | Text query + `severity: "Critical"` | PASS — `filters_applied: true`, only Critical incidents returned |
+| `POST /retrieval/search/similar` | Known incident UUID, `top_k: 3` | PASS — 2 results with cosine scores |
+| `POST /retrieval/rag` | Query + `rerank: false` | PASS — `context_text` formatted block with query header, numbered incidents, scores |
+
+**Key behaviour confirmed (June 6):**
+- Metadata fallback for raw-ingested incidents (no AI analysis): `severity: "Unknown"`, `incident_type: ["Unknown"]` — correct and expected
+- To get rich metadata, call `POST /incidents/analyze/excel` first, then `POST /retrieval/ingest/analyzed`
+- `filters_applied: true` flag correctly indicates when a Qdrant filter was applied
+- `context_text` is directly LLM-injectable (plain text, no adapter needed)
+- `was_reranked: false` when reranking skipped — correct
+
+### Week 6 — Additional Postman Testing (June 8, 2026)
+
+| Endpoint | Test | Result |
+|----------|------|--------|
+| `POST /retrieval/ingest/analyzed` | `{"incidents": [...], "analyses": [...]}` paired by incident_id | PASS — `ingested: 1`, correct UUID |
+| `POST /retrieval/search` | Query after analyzed ingest | PASS — `key_learning` populated in result |
+| `POST /retrieval/rag` | Query after analyzed ingest | PASS — "Key learning:" line present in `context_text` |
+
+**Key behaviour confirmed (June 8):**
+- `POST /retrieval/ingest/analyzed` pairs incidents and analyses by `incident_id`; unmatched incidents fall back to raw metadata
+- `key_learning` was missing from VectorMetadata schema — added field; now correctly stored and returned in search/RAG results
+- Correct workflow: (1) `/incidents/ingest/excel` → Incident array, (2) `/incidents/analyze` → AIAnalysis array, (3) `/retrieval/ingest/analyzed` → both arrays together
 
 ---
 
@@ -233,11 +342,13 @@ The AIR Clinical Incident Intelligence Engine project has moved beyond the initi
 - ✅ Configuration examples
 
 ### Testing
-- ✅ Unit and integration tests passing (`86 passed, 1 skipped`)
+- ✅ Unit and integration tests passing (`212 passed, 1 skipped`)
 - ✅ Fixture-based test data
 - ✅ Edge case coverage
-- ✅ 90% coverage (current)
+- ✅ 91% coverage (current)
 - ✅ API ingest integration coverage in place
+- ✅ Week 5: in-memory Qdrant + mock embedding model pattern established
+- ✅ Week 6: _FakeCrossEncoder for reranker tests; all retrieval tests run offline in <3 min
 
 ### Error Handling
 - ✅ Comprehensive error messages
@@ -275,17 +386,24 @@ The system includes a sample incident report (from the provided PDF):
 - ✅ Incident understanding agent
 - ✅ Validation layer and root cause analysis
 
-### Next Up (Week 5)
-- 📋 Embedding engine
-- 📋 Vector store integration
-- 📋 Metadata extraction and indexing
-- 📋 End-to-end embed/store pipeline
+### Completed in Week 5
+- ✅ Embedding engine (EmbeddingEngine with BGE-M3, lazy load, batch)
+- ✅ Vector store integration (QdrantHandler with cosine search)
+- ✅ Metadata extraction and indexing (extract_metadata + build_payload)
+- ✅ End-to-end embed → store → search pipeline
 
-### Ready After Week 5
-- 📋 Vector similarity search
-- 📋 Retrieval and clustering
-- 📋 RAG system
-- 📋 Insight generation and editorial layers
+### Completed in Week 6
+- ✅ Similarity search engine (`src/retrieval/similarity_search.py`) — SearchFilters, SimilaritySearchEngine
+- ✅ Cross-encoder reranker (`src/retrieval/reranker.py`) — bge-reranker-large, lazy load, threshold filtering
+- ✅ RAG retrieval pipeline (`src/retrieval/rag.py`) — RAGRetriever, LLM-injectable context formatting
+- ✅ Retrieval API (`src/api/retrieval.py`) — 6 endpoints including `/ingest/analyzed`
+- ✅ Demo script (`scripts/demo_retrieval.py`) — 8 sample incidents, offline fake models
+- ✅ `key_learning` added to VectorMetadata (June 8, 2026 — field was missing from schema)
+
+### Next Up (Week 7 — Phase 3)
+- 📋 Theme clustering engine (HDBSCAN + UMAP) — `src/retrieval/clustering.py`
+- 📋 Theme naming (LLM-assisted) and pattern extraction
+- 📋 Cluster quality metrics and UMAP visualisation
 
 ---
 
@@ -312,11 +430,12 @@ The system includes a sample incident report (from the provided PDF):
 
 ## Performance Baselines
 
-### Current (Phase 1)
+### Current (Phase 3, Week 6)
 - Excel parsing: <100ms per incident
 - Data validation: <10ms per incident
-- Model creation: <5ms per incident
-- Test execution: ~2 seconds for all tests
+- Embedding (BGE-M3): ~200ms per incident (first call loads model)
+- Similarity search (in-memory Qdrant): <5ms for top-5
+- Full test suite: ~170 seconds (212 tests; model load on first embed call)
 
 ### Targets (Phase 6)
 - Incident parsing: <1s per incident
@@ -346,23 +465,23 @@ The system includes a sample incident report (from the provided PDF):
 
 ---
 
-## Next Immediate Steps (Week 2)
+## Next Immediate Steps (Week 7)
 
 ### Priority 1 (Critical Path)
-1. [ ] Implement normalization engine
-2. [ ] Create validation schemas
-3. [ ] Extend testing for normalization
-4. [ ] Integration test (parse → normalize)
+1. [ ] Implement HDBSCAN clustering engine (`src/retrieval/clustering.py`)
+2. [ ] Integrate UMAP dimensionality reduction
+3. [ ] LLM-assisted theme naming
+4. [ ] Integration test: embed → cluster → theme pipeline
 
 ### Priority 2 (Supporting)
-5. [ ] Add more test fixtures
-6. [ ] Update Tasks.md with progress
-7. [ ] Begin Phase 2 planning
+5. [ ] Cluster quality metrics (silhouette score target >0.4)
+6. [ ] Theme pattern extraction from cluster members
+7. [ ] Update Tasks.md with Week 7 progress
 
 ### Priority 3 (Enhancement)
-8. [ ] Add performance benchmarks
-9. [ ] Create development examples
-10. [ ] Update deployment docs
+8. [ ] UMAP visualisation output
+9. [ ] Clinician validation checklist for themes
+10. [ ] Week 7 Postman test guide
 
 ---
 
@@ -374,10 +493,10 @@ The system includes a sample incident report (from the provided PDF):
 - ✅ Git
 - ✅ All completed
 
-### For Week 5 (Phase 2)
-- 📋 Anthropic API key (for Claude testing)
-- 📋 Qdrant (vector database)
-- 📋 LangGraph (orchestration)
+### For Week 5 (Phase 2) — Now Complete
+- ✅ Anthropic API key (optional; guarded tests)
+- ✅ Qdrant client (in-memory for tests; local/cloud for production)
+- ✅ LangGraph (orchestration)
 
 ### For Weeks 6-16 (Advanced Phases)
 - 📋 Docker
@@ -387,18 +506,21 @@ The system includes a sample incident report (from the provided PDF):
 
 ---
 
-## Success Criteria - Week 4
+## Success Criteria - Week 6
 
 | Criterion | Target | Actual | Status |
 |-----------|--------|--------|--------|
-| Project structure | Complete | ✅ Complete | ✅ Pass |
-| Data models | All models | ✅ Complete | ✅ Pass |
-| Excel parser | Functional | ✅ Fully functional | ✅ Pass |
-| Tests | >80 tests | ✅ 86 passed, 1 skipped | ✅ Pass |
-| Documentation | Complete | ✅ Updated through Week 4 | ✅ Pass |
-| Code quality | Type hints | ✅ All typed | ✅ Pass |
+| Similarity search | Top-K with filters | ✅ severity, surgery_type, year, incident_type | ✅ Pass |
+| Reranker | Cross-encoder integration | ✅ bge-reranker-large, lazy load, threshold | ✅ Pass |
+| RAG retrieval | Context formatting | ✅ LLM-injectable plain text output | ✅ Pass |
+| Retrieval API | 6 endpoints live | ✅ Validated via Postman | ✅ Pass |
+| ingest/analyzed | Rich metadata ingest | ✅ Matched by incident_id, key_learning populated | ✅ Pass |
+| key_learning | In VectorMetadata | ✅ Added June 8, 2026 | ✅ Pass |
+| Tests | >200 tests | ✅ 212 passed, 1 skipped | ✅ Pass |
+| Coverage | >85% | ✅ 91% | ✅ Pass |
+| Documentation | Updated through Week 6 | ✅ All tracker files updated | ✅ Pass |
 
-**Week 4 Result: ✅ ALL CURRENT CRITERIA MET**
+**Week 6 Result: ✅ ALL CURRENT CRITERIA MET**
 
 ---
 
@@ -415,57 +537,98 @@ The system includes a sample incident report (from the provided PDF):
 
 ## Files Summary
 
-### Core Source Code (8 files)
+### Core Source Code
 ```
 src/
 ├── __init__.py
 ├── models/
 │   ├── __init__.py
-│   ├── incident.py          [316 lines]
-│   └── analysis.py          [198 lines]
+│   ├── incident.py                    [316 lines]
+│   └── analysis.py                    [213 lines]  <- VectorMetadata.key_learning added
 ├── ingestion/
 │   ├── __init__.py
-│   └── excel_parser.py      [392 lines]
+│   └── excel_parser.py                [392 lines]
+├── normalization/
+│   ├── __init__.py
+│   └── enums.py
+├── embeddings/
+│   ├── __init__.py
+│   ├── engine.py                      [EmbeddingEngine, BGE-M3]
+│   └── models.py                      [EmbeddingResult, registry]
+├── vector_store/
+│   ├── __init__.py
+│   ├── qdrant_handler.py              [QdrantHandler, cosine search]
+│   └── metadata.py                    [extract_metadata, build_payload]
+├── retrieval/
+│   ├── __init__.py
+│   ├── similarity_search.py           [SimilaritySearchEngine, SearchFilters]
+│   ├── reranker.py                    [CrossEncoderReranker, RerankResult]
+│   └── rag.py                         [RAGRetriever, RetrievedContext]
+├── agents/
+│   ├── __init__.py
+│   └── understanding_agent.py
+├── validation/
+│   ├── __init__.py
+│   └── validator_agent.py
+├── api/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── incidents.py
+│   └── retrieval.py                   [6 endpoints]
 └── utils/
     ├── __init__.py
-    ├── logger.py            [65 lines]
-    ├── config.py            [68 lines]
-    └── helpers.py           [74 lines]
+    ├── logger.py
+    ├── config.py
+    └── helpers.py
 ```
 
-### Test Code (3 files)
+### Scripts
+```
+scripts/
+└── demo_retrieval.py                  [8 sample incidents, offline fake models]
+```
+
+### Test Code
 ```
 tests/
 ├── __init__.py
 ├── fixtures/
 │   ├── __init__.py
-│   └── sample_incidents.py  [260 lines]
-└── unit/
-    ├── __init__.py
-    ├── test_models.py       [350 lines]
-    └── test_parsers.py      [410 lines]
+│   └── sample_incidents.py
+├── unit/
+│   ├── test_models.py
+│   ├── test_parsers.py
+│   ├── test_week3_incident_understanding.py
+│   ├── test_week5_embeddings.py
+│   ├── test_week5_vector_store.py
+│   ├── test_week6_similarity_search.py
+│   ├── test_week6_reranker.py
+│   └── test_week6_rag.py
+└── integration/
+    ├── test_week5_pipeline.py
+    └── test_week6_retrieval_pipeline.py
 ```
 
-### Configuration (6 files)
+### Configuration
 ```
 ├── pyproject.toml
 ├── .env
 ├── .env.example
 ├── .gitignore
-├── conftest.py
+└── conftest.py
 ```
 
-### Documentation (7 files)
+### Documentation
 ```
-├── project_overview.md      [650+ lines]
-├── Plan.md                  [550+ lines]
-├── Tasks.md                 [650+ lines]
-├── README.md                [250+ lines]
-├── GETTING_STARTED.md       [350+ lines]
+├── project_overview.md
+├── Plan.md
+├── Tasks.md
+├── README.md
+├── GETTING_STARTED.md
 └── DEVELOPMENT_STATUS.md    [This file]
 ```
 
-**Total Deliverables: 31 files, ~3,500+ lines of code/documentation**
+**Total Deliverables: 50+ files, ~8,000+ lines of code/documentation**
 
 ---
 
@@ -481,23 +644,25 @@ For questions about Weeks 1-4 deliverables:
 
 ## Sign-Off
 
-**Status:** Phase 2, Week 4 - COMPLETE ✅
+**Status:** Phase 3, Week 6 - COMPLETE ✅
 
 **Verified:**
 - All code compiles without errors
 - All imports resolve correctly
 - All models instantiate successfully
-- All week 4 tests run successfully
-- Full test suite passes (`86 passed, 1 skipped`)
-- Documentation is aligned with current implementation
+- Week 6 deliverables: 73 new tests (24 similarity search + 14 reranker + 23 RAG unit + 12 integration)
+- Full test suite passes (`212 passed, 1 skipped`)
+- All 6 retrieval API endpoints validated via Postman (June 6 + June 8, 2026)
+- `key_learning` field added to VectorMetadata and confirmed in search/RAG output (June 8, 2026)
+- Documentation aligned with current implementation
 - Code follows best practices
 
-**Ready for:** Phase 2, Week 5 (Embedding Generation & Vector Integration)
+**Ready for:** Phase 3, Week 7 (Theme Clustering — HDBSCAN + UMAP)
 
-**Next Review:** May 27, 2026
+**Next Review:** June 15, 2026
 
-**Date:** May 22, 2026
+**Date:** June 8, 2026
 
 ---
 
-**The AIR Clinical Incident Intelligence Engine is now verified through Week 4 and ready for Week 5 development.**
+**The AIR Clinical Incident Intelligence Engine is now verified through Week 6 (Phase 3 in progress). The full parse → analyze → embed → store → search → rerank → RAG pipeline is operational.**

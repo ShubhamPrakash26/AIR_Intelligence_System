@@ -188,6 +188,7 @@ class VectorMetadata(BaseModel):
     severity_score: float = Field(..., description="Numerical severity score")
     surgery_type: str = Field(..., description="Type of surgery")
     root_cause: str = Field(..., description="Root cause description")
+    key_learning: str = Field(default="", description="Key preventive learning from analysis")
     month: str | None = Field(None, description="Month of incident")
     year: int | None = Field(None, description="Year of incident")
     source: str = Field(..., description="Data source")

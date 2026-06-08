@@ -113,10 +113,14 @@ def test_understanding_agent_uses_llm_payload_when_available(sample_incident):
 
     result = agent.analyze_incident(sample_incident)
 
+    # LLM-overridable fields are merged
     assert result.analysis.incident_type == ["Medication Error", "Documentation Error"]
     assert result.analysis.severity == "High"
-    assert result.analysis.root_cause == "Labeling failure"
     assert result.analysis.processing_notes == "LLM override"
+    # root_cause is intentionally preserved from the deterministic RCA engine
+    # (see _merge_llm_payload comment) — it must NOT be the LLM suggestion
+    assert result.analysis.root_cause != "Labeling failure"
+    assert result.analysis.root_cause  # non-empty
 
 
 def test_llm_response_contract_is_strict_and_canonical():
