@@ -317,6 +317,43 @@ class QdrantHandler:
     # Info
     # ------------------------------------------------------------------
 
+    def scroll_all(self) -> list[dict[str, Any]]:
+        """Retrieve every stored point (id, vector, payload) from the collection.
+
+        Paginates through Qdrant's scroll API in batches of 100 so the full
+        collection can be fetched regardless of size.  Used by the clustering
+        pipeline to obtain all incident vectors in one call.
+
+        Returns:
+            List of dicts with keys ``incident_id``, ``vector``, ``metadata``.
+        """
+        client = self._get_client()
+        records: list[dict[str, Any]] = []
+        offset = None
+
+        while True:
+            result, next_offset = client.scroll(
+                collection_name=self._collection_name,
+                offset=offset,
+                limit=100,
+                with_vectors=True,
+                with_payload=True,
+            )
+            for point in result:
+                records.append(
+                    {
+                        "incident_id": str(point.payload.get("incident_id", point.id)),
+                        "vector": list(point.vector) if point.vector else [],
+                        "metadata": dict(point.payload or {}),
+                    }
+                )
+            if next_offset is None:
+                break
+            offset = next_offset
+
+        logger.debug("scroll_all: retrieved %d records from '%s'", len(records), self._collection_name)
+        return records
+
     def collection_info(self) -> dict[str, Any]:
         """Return summary statistics for the collection.
 

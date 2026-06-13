@@ -3,11 +3,17 @@
 Combines semantic similarity search with optional cross-encoder reranking to
 produce a context block that can be injected directly into an LLM prompt.
 
-Typical flow:
+Typical flow (basic):
   1. Embed the query (text or incident object).
   2. Retrieve top-N candidates from Qdrant via SimilaritySearchEngine.
   3. Optionally rerank with CrossEncoderReranker (bge-reranker-large).
   4. Format the result set as a structured text block for LLM consumption.
+
+Grounded pipeline (Week 8):
+  GroundedRAGPipeline wraps RAGRetriever and adds:
+  - QueryPreprocessor: intent classification, keyword extraction, filter inference
+  - EvidenceTracker: relevance grading, coverage scoring, citation formatting
+  - GroundedRetrievalResult: single output carrying preprocessing + evidence metadata
 
 The output of ``format_context()`` is intentionally plain text rather than a
 structured type so it can be passed directly into any prompt template without
@@ -294,3 +300,168 @@ class RAGRetriever:
             len(ctx.reranked),
         )
         return ctx
+
+
+# ---------------------------------------------------------------------------
+# Week 8: Grounded RAG pipeline
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class GroundedRetrievalResult:
+    """Full output of GroundedRAGPipeline.retrieve().
+
+    Extends RetrievedContext with evidence tracking and query preprocessing
+    metadata so downstream consumers know how well the retrieved context
+    supports the query.
+
+    Attributes:
+        query: Original query string.
+        processed_query: Preprocessor output (intent, keywords, filters).
+        results: Initial similarity-search candidates.
+        reranked: Reranker output (empty list when reranking was skipped).
+        was_reranked: True when cross-encoder reranking was applied.
+        context_text: Plain-text context (backward-compatible with RAGRetriever).
+        evidence_bundle: Structured evidence grading and citations.
+        grounded_context: Evidence-attributed context ready for LLM injection.
+    """
+
+    query: str
+    processed_query: Any  # ProcessedQuery — imported lazily to avoid circular
+    results: list[SimilaritySearchResult]
+    reranked: list[RerankResult] = field(default_factory=list)
+    was_reranked: bool = False
+    context_text: str = ""
+    evidence_bundle: Any = None  # EvidenceBundle
+    grounded_context: str = ""
+
+    @property
+    def final_results(self) -> list[RerankResult] | list[SimilaritySearchResult]:
+        """Return reranked results if available, else initial similarity results."""
+        return self.reranked if self.was_reranked else self.results
+
+    @property
+    def top_result(self) -> RerankResult | SimilaritySearchResult | None:
+        """First (highest-ranked) result, or None when the result set is empty."""
+        results = self.final_results
+        return results[0] if results else None
+
+
+class GroundedRAGPipeline:
+    """RAG pipeline with query preprocessing and evidence attribution.
+
+    Wraps RAGRetriever and layers:
+    - QueryPreprocessor for intent classification and filter inference
+    - EvidenceTracker for relevance grading and citation formatting
+
+    Args:
+        retriever: Configured RAGRetriever.
+        preprocessor: QueryPreprocessor instance.  Created with defaults
+            when None.
+        tracker: EvidenceTracker instance.  Created with defaults when None.
+    """
+
+    def __init__(
+        self,
+        retriever: RAGRetriever,
+        preprocessor: Any = None,
+        tracker: Any = None,
+    ) -> None:
+        self._retriever = retriever
+        # Lazy imports avoid circular imports between retrieval submodules
+        from src.retrieval.query_preprocessor import QueryPreprocessor
+        from src.retrieval.evidence import EvidenceTracker
+
+        self._preprocessor = preprocessor or QueryPreprocessor()
+        self._tracker = tracker or EvidenceTracker()
+
+    @classmethod
+    def from_components(
+        cls,
+        embedding_engine: EmbeddingEngine,
+        qdrant_handler: QdrantHandler,
+        reranker: CrossEncoderReranker | None = None,
+        preprocessor: Any = None,
+        tracker: Any = None,
+    ) -> "GroundedRAGPipeline":
+        """Convenience factory — wires up the full grounded pipeline.
+
+        Args:
+            embedding_engine: Configured EmbeddingEngine.
+            qdrant_handler: Configured QdrantHandler.
+            reranker: Optional CrossEncoderReranker.
+            preprocessor: Optional QueryPreprocessor.
+            tracker: Optional EvidenceTracker.
+
+        Returns:
+            Ready-to-use GroundedRAGPipeline.
+        """
+        retriever = RAGRetriever.from_components(
+            embedding_engine, qdrant_handler, reranker
+        )
+        return cls(retriever, preprocessor, tracker)
+
+    def retrieve(
+        self,
+        query: str,
+        top_k: int = 5,
+        rerank: bool = False,
+        use_preprocessing: bool = True,
+        filters: SearchFilters | None = None,
+    ) -> GroundedRetrievalResult:
+        """Full grounded retrieval pipeline.
+
+        Args:
+            query: Free-text clinical query string.
+            top_k: Number of initial candidates from Qdrant.
+            rerank: Apply cross-encoder reranking.
+            use_preprocessing: When True, run QueryPreprocessor to detect
+                intent, extract keywords, and infer filters from query text.
+                Set False to bypass preprocessing entirely.
+            filters: Explicit SearchFilters.  Overrides inferred filters when
+                both are present.
+
+        Returns:
+            GroundedRetrievalResult with preprocessed query, evidence bundle,
+            and grounded context text.
+        """
+        processed = self._preprocessor.preprocess(query)
+
+        # Resolve filters: explicit > inferred > none
+        effective_filters = filters
+        if effective_filters is None and use_preprocessing:
+            effective_filters = processed.suggested_filters
+
+        base_ctx = self._retriever.retrieve(
+            query,
+            top_k=top_k,
+            rerank=rerank,
+            filters=effective_filters,
+        )
+
+        final_results = base_ctx.reranked if base_ctx.was_reranked else base_ctx.results
+        bundle = self._tracker.build_bundle(
+            query,
+            final_results,
+            keywords=processed.keywords if use_preprocessing else [],
+        )
+        grounded = self._tracker.format_grounded_context(bundle, query=query)
+
+        logger.info(
+            "GroundedRAG: intent=%s keywords=%d results=%d confidence=%s",
+            processed.intent.value,
+            len(processed.keywords),
+            len(final_results),
+            bundle.confidence,
+        )
+
+        return GroundedRetrievalResult(
+            query=query,
+            processed_query=processed,
+            results=base_ctx.results,
+            reranked=base_ctx.reranked,
+            was_reranked=base_ctx.was_reranked,
+            context_text=base_ctx.context_text,
+            evidence_bundle=bundle,
+            grounded_context=grounded,
+        )

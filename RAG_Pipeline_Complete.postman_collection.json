@@ -1,0 +1,340 @@
+{
+  "info": {
+    "_postman_id": "aa5f43eb-f96c-475b-9ddf-2ca46fe76ca3",
+    "name": "RAG Pipeline (Complete)",
+    "description": "All 8 retrieval endpoints tested against AIR_Log_Report_Merged.xlsx (10 real incidents: difficult intubation, bronchospasm, failed spinal, airway obstruction, brainstem anaesthesia, equipment failure, paediatric IV access).\n\nWorkflow:\n1. Run 'Ingest Excel file' first — copy any incident_id from the response into the {{incident_id}} collection variable\n2. Run the remaining requests in order\n\nNote: Qdrant is in-memory — data clears on server restart. Always ingest before querying.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51242722",
+    "_collection_link": "https://go.postman.co/collection/51242722-aa5f43eb-f96c-475b-9ddf-2ca46fe76ca3?source=collection_link"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "incident_id",
+      "value": "PASTE-AN-ID-FROM-INGEST-RESPONSE-HERE",
+      "type": "string",
+      "description": "Copy any incident_id from the 'Ingest Excel file' response"
+    }
+  ],
+  "item": [
+    {
+      "name": "STEP 1 — Ingest Excel file",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "/C:/Users/HP/Downloads/AIR_Log_Report_Merged.xlsx",
+              "description": "Select the AIR_Log_Report_Merged.xlsx file"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/ingest/excel",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "ingest", "excel"]
+        },
+        "description": "Parse + embed + store all 10 incidents from the Excel file.\n\nAfter the response arrives:\n- Copy any incident_id from the 'incident_ids' array\n- Paste it into the {{incident_id}} collection variable (Edit Collection > Variables)"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 2 — Check collection status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/retrieval/status",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "status"]
+        },
+        "description": "Verify all 10 incidents are stored. Expect: points_count=10, status=green, embedding_dimension=1024"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 3a — Search: difficult intubation",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"difficult intubation during induction emergency airway\",\n  \"top_k\": 5\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/search",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "search"]
+        },
+        "description": "Semantic search — no filters. Expect top results from incidents 1 (Cormack-Lehane IIb / bougie), 5 (RSI emergency laparotomy), 9 (morbidly obese video laryngoscopy)."
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 3b — Search: bronchospasm during laparoscopy",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"bronchospasm desaturation during laparoscopic surgery\",\n  \"top_k\": 5\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/search",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "search"]
+        },
+        "description": "Should return the laparoscopic cholecystectomy bronchospasm incident (41-50 Female, peritoneal insufflation trigger) and the gynaecology DHC bronchospasm + equipment fault incident."
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 3c — Search: failed spinal block",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"failed spinal anaesthesia conversion to general anaesthesia\",\n  \"top_k\": 5\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/search",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "search"]
+        },
+        "description": "Should return the ACL reconstruction incident (31-40 Male, spinal L3-L4, inadequate block → GA conversion, outcome D1)."
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 4 — Search with surgery type filter (General surgery)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"airway complications intraoperative emergency\",\n  \"top_k\": 5,\n  \"surgery_type\": \"General surgery\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/search",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "search"]
+        },
+        "description": "Filtered to General surgery only. Expect results from: laparoscopic cholecystectomy (bronchospasm), exploratory laparotomy (RSI/difficult intubation), bariatric sleeve gastrectomy (difficult airway).\n\nCheck: filters_applied=true in the response."
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 5 — Find similar incidents",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"incident_id\": \"{{incident_id}}\",\n  \"top_k\": 5,\n  \"exclude_self\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/search/similar",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "search", "similar"]
+        },
+        "description": "Vector similarity lookup using a stored incident's embedding (no re-embedding needed).\n\nPrerequisite: set the {{incident_id}} variable to any ID from the ingest response.\n\nExpect: ranked list of the 5 most similar incidents with cosine scores."
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 6 — RAG: airway obstruction management",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"airway obstruction and brainstem anaesthesia after peribulbar block\",\n  \"top_k\": 5,\n  \"rerank\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/rag",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "rag"]
+        },
+        "description": "RAG retrieval — returns formatted context_text block ready for LLM injection.\n\nShould surface the ophthalmology cataract incident (61-70 Female, peribulbar block → brainstem anaesthesia, LMA rescue, ventilatory support, outcome D2).\n\nCheck: context_text contains incident narrative blocks."
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 7 — Theme clustering",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"min_cluster_size\": 2,\n  \"use_llm_naming\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/cluster",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "cluster"]
+        },
+        "description": "HDBSCAN + UMAP clustering across all 10 incidents.\n\nUsing min_cluster_size=2 (lower than default 3) because the dataset is small.\n\nExpected clusters (approximate):\n- Airway/Difficult intubation group (incidents 1, 5, 9)\n- Bronchospasm/Respiratory group (incidents 3, 4)\n- Regional block complication group (incidents 6, 7)\n\nCheck: n_clusters > 0. If 0, the 10-incident dataset may be too small for HDBSCAN — use themes.summary_report for pattern narrative."
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 8a — Grounded RAG: general query",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"airway complications and difficult intubation during anaesthesia induction\",\n  \"top_k\": 5,\n  \"use_preprocessing\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/rag/grounded",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "rag", "grounded"]
+        },
+        "description": "Week 8 endpoint. Preprocesses the query, expands clinical terms, builds an evidence bundle with relevance grading.\n\nExpect:\n- intent: 'general'\n- keywords: ['airway', 'complications', 'difficult', 'intubation', 'anaesthesia', 'induction']\n- expanded_terms: includes 'anesthesia', 'anaesthetic'\n- suggested_filters: null (no severity/year in query)\n- confidence: 'High' or 'Moderate'\n- citations: one line per result e.g. 'Incident abc123 | severity=... | type=... | score=0.891'\n- grounded_context: full evidence block with HIGH/MODERATE/LOW grade labels"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 8b — Grounded RAG: root cause intent",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"why does bronchospasm occur during laparoscopic surgery under general anaesthesia\",\n  \"top_k\": 5,\n  \"use_preprocessing\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/rag/grounded",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "rag", "grounded"]
+        },
+        "description": "Triggered by 'why' — intent should be 'root_cause'.\n\nExpect:\n- intent: 'root_cause'\n- keywords: ['bronchospasm', 'laparoscopic', 'surgery', 'general', 'anaesthesia']\n- expanded_terms: includes 'anesthesia', 'bronchospasm'\n- suggested_filters: null (no severity word in query)\n- Should return the laparoscopic cholecystectomy incident (peritoneal insufflation trigger) and the gynaecology DHC incident"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 8c — Grounded RAG: pattern analysis intent",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"what are the recurring patterns in emergency cases with difficult intubation\",\n  \"top_k\": 5,\n  \"use_preprocessing\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/rag/grounded",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "rag", "grounded"]
+        },
+        "description": "Triggered by 'recurring patterns' — intent should be 'pattern_analysis'.\n\nExpect:\n- intent: 'pattern_analysis'\n- keywords: includes 'emergency', 'difficult', 'intubation'\n- Should surface: incident 1 (Cormack-Lehane IIb emergency), incident 5 (RSI emergency laparotomy), incident 9 (morbidly obese video laryngoscopy)"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 8d — Grounded RAG: safety recommendations intent",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"how to prevent failed spinal blocks and improve regional anaesthesia safety protocols\",\n  \"top_k\": 5,\n  \"use_preprocessing\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/rag/grounded",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "rag", "grounded"]
+        },
+        "description": "Triggered by 'prevent' + 'safety' — intent should be 'safety_recommendations'.\n\nExpect:\n- intent: 'safety_recommendations'\n- keywords: includes 'spinal', 'regional', 'anaesthesia', 'safety'\n- expanded_terms: includes 'anesthesia', 'anaesthetic'\n- Should return: incident 7 (failed spinal ACL reconstruction), incident 6 (brainstem anaesthesia after peribulbar block)"
+      },
+      "response": []
+    },
+    {
+      "name": "STEP 8e — Grounded RAG: preprocessing bypass",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"difficult airway paediatric emergency intraosseous access\",\n  \"top_k\": 5,\n  \"use_preprocessing\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/retrieval/rag/grounded",
+          "host": ["{{base_url}}"],
+          "path": ["retrieval", "rag", "grounded"]
+        },
+        "description": "use_preprocessing=false skips filter inference and keyword expansion — raw semantic search only.\n\nExpect:\n- suggested_filters: null (even though 'difficult' is in query)\n- coverage_score: 1.0 (no keywords = full coverage by default)\n- Should still return relevant results (incident 8: 2-year-old inguinal hernia, sevoflurane induction, IO line) via pure vector similarity\n\nCompare results with STEP 8a to see the effect of preprocessing."
+      },
+      "response": []
+    }
+  ]
+}
