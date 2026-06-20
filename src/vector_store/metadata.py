@@ -40,8 +40,8 @@ def extract_metadata(
         key_learning = analysis.key_learning
     else:
         # Graceful fallback when analysis is not yet available
-        incident_type = incident.incident.incident_type or ["Unknown"]
-        severity = incident.outcome.harm_severity or "Unknown"
+        incident_type = incident.incident.incident_type or []
+        severity = incident.outcome.harm_severity or ""
         severity_score = 0.0
         root_cause = ""
         key_learning = ""

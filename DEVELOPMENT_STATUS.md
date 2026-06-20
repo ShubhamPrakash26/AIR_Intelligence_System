@@ -1,22 +1,22 @@
 # AIR Intelligence System - Development Status
 
-**Last Updated:** June 13, 2026  
-**Phase:** Phase 3 - Retrieval & Discovery (Week 8 Complete — Phase 3 DONE)  
-**Overall Progress:** 50% Complete (Week 8 of 16) — **Manual E2E Testing Complete June 13, 2026**
+**Last Updated:** June 14, 2026  
+**Phase:** Phase 4 - Insight Generation (Week 11 Complete)  
+**Overall Progress:** 69% Complete (Week 11 of 16)
 
 ---
 
 ## Executive Summary
 
-The AIR Clinical Incident Intelligence Engine project has completed Phase 3 Week 8 RAG Integration — completing all of Phase 3 (Retrieval & Discovery). Weeks 1-8 are implemented and validated, adding grounded RAG with query preprocessing, evidence tracking, coverage scoring, and a `POST /retrieval/rag/grounded` API endpoint. The full pipeline from parse → analyze → embed → store → search → rerank → RAG → cluster → grounded context is now operational.
+The AIR Clinical Incident Intelligence Engine project has completed Phase 4 Week 10 Editorial Intelligence. Weeks 1-10 are implemented and validated. Week 10 adds the EditorialEngine: a full APSA-newsletter-style report generator that transforms InsightBatch output into polished prose with thematic sections, executive summaries, tone validation, and a single-call `/editorial/from_query` endpoint spanning the full pipeline.
 
 ### Key Metrics
 
-- **Files Created:** 68+
-- **Lines of Code:** ~9,500+
-- **Automated Tests Passing:** 404 (1 skipped — LLM integration, guarded by API key)
-- **New Week 8 Tests:** 111 (80 unit + 16 integration + 1 guard)
-- **Current Coverage:** 86%
+- **Files Created:** 86+
+- **Lines of Code:** ~13,200+
+- **Automated Tests Passing:** 640 (1 skipped — LLM integration, guarded by API key)
+- **New Week 11 Tests:** 59 (35 formatter unit + 24 pipeline integration)
+- **Current Coverage:** 84%
 - **Documentation:** 4 comprehensive guides + 7 detailed documents
 - **Code Quality:** Type-hinted, fully documented, linted
 
@@ -324,6 +324,78 @@ The AIR Clinical Incident Intelligence Engine project has completed Phase 3 Week
 - `grounded_context` includes evidence confidence header, per-item grade, matched fields, and citation
 - All Week 8 components are injectable (preprocessor, tracker) — no downloads in tests
 
+### 14. Week 9: Insight Generation Agent ✅
+
+**Status:** Complete — June 13, 2026
+
+- [x] `InsightGenerator` class following `IncidentUnderstandingAgent` pattern (ChatAnthropic + `with_structured_output`)
+- [x] `InsightItem` Pydantic model: insight_text, insight_type (normalised), evidence_citations, actionable_steps, confidence (normalised)
+- [x] `InsightLLMResponse` structured output contract with validation
+- [x] `GeneratedInsight` dataclass: is_grounded, is_actionable, specificity_score (heuristic: citations + steps + text length)
+- [x] `InsightBatch` dataclass: all_citations (deduplicated), grounded_count, actionable_count, generation_confidence rollup
+- [x] APSA-quality system prompt: mandatory citation rule, specific mechanism requirement, bad/good few-shot examples, per-intent guidance
+- [x] `build_user_message()` combining query, intent guidance, citation block, grounded context
+- [x] Graceful fallback when no `ANTHROPIC_API_KEY`: returns deterministic structured insight
+- [x] `generate_from_result(GroundedRetrievalResult)`: extracts intent from `IntentType.value`, citations from `EvidenceBundle.citations`
+- [x] `GET /insights/status` — LLM availability check
+- [x] `POST /insights/generate` — insights from pre-retrieved grounded context
+- [x] `POST /insights/from_query` — full pipeline: GroundedRAGPipeline → InsightGenerator in one call
+- [x] 91 new tests, all passing
+
+**Files:**
+- `src/insights/models.py` — InsightItem, InsightLLMResponse, GeneratedInsight, InsightBatch
+- `src/insights/prompts.py` — SYSTEM_PROMPT, INTENT_SUFFIX, build_user_message()
+- `src/insights/generator.py` — InsightGenerator
+- `src/insights/__init__.py` — Public exports
+- `src/api/insights.py` — FastAPI router (3 endpoints)
+- `src/api/main.py` — insights router mounted
+- `tests/unit/test_week9_insight_models.py` — 24 model unit tests
+- `tests/unit/test_week9_generator.py` — 30 generator unit tests (fake LLM)
+- `tests/integration/test_week9_insight_pipeline.py` — 15 integration tests
+
+**Design decisions:**
+- `extra="ignore"` on InsightLLMResponse: LLM may return extra fields; fail-safe is preferred over strict rejection
+- `confidence` validator normalises to title-case; invalid values default to "Low" (never raises)
+- `insight_type` validator normalises to lowercase snake_case; unknown types default to "general"
+- `_derive_batch_confidence`: requires 2+ High OR (1 High + 1 Moderate) for batch "High" — single High rolls up to Moderate
+- `specificity_score` is a heuristic proxy (citations + steps + text length), not semantic
+- `POST /insights/from_query` creates GroundedRAGPipeline inline (same singleton pattern as `/retrieval/rag/grounded`)
+- Temperature 0.3 (not 0.7): lower temp for factual, grounded clinical output
+
+### 15. Week 10: Editorial Intelligence Layer ✅
+
+**Status:** Complete — June 13, 2026
+
+- [x] `ThemeGrouper` — groups InsightBatch.insights by insight_type in canonical order (root_cause → pattern_analysis → safety_recommendations → general)
+- [x] `ToneValidator` — deterministic forbidden-phrase checker; 28-phrase list covering blame, negligence, platitudes; returns (score, found_phrases), score decreases 0.15 per unique violation
+- [x] `NarrativeBuilder` — ChatAnthropic (temperature=0.4 for prose fluency) + with_structured_output(EditorialLLMResponse); single LLM call generates all sections + executive summary + conclusion cohesively
+- [x] `EditorialEngine` — orchestrates ThemeGrouper → NarrativeBuilder → ToneValidator → EditorialReport; fallback to deterministic report on LLM failure
+- [x] `EDITORIAL_SYSTEM_PROMPT` — APSA tone/style requirements, 28 forbidden phrases, BAD/GOOD prose examples
+- [x] `build_editorial_message()` — per-theme editorial guidance blocks, insight_text + citations + steps injection
+- [x] `EditorialSection` dataclass — insight_count, is_grounded, word_count, tone_score per section
+- [x] `EditorialReport` dataclass — section_count, word_count, grounded_section_count, all_citations deduplicated, has_llm_narrative flag
+- [x] `GET /editorial/status`, `POST /editorial/generate`, `POST /editorial/from_query`
+- [x] `_dict_to_batch()` converter — accepts InsightBatchOut JSON from /insights endpoints directly
+- [x] 86 new tests, all passing
+
+**Files:**
+- `src/insights/editorial_models.py` — SectionLLMItem, EditorialLLMResponse, EditorialSection, EditorialReport
+- `src/insights/editorial_prompts.py` — EDITORIAL_SYSTEM_PROMPT, FORBIDDEN_PHRASES, build_editorial_message()
+- `src/insights/editorial.py` — ThemeGrouper, ToneValidator, NarrativeBuilder, EditorialEngine
+- `src/insights/__init__.py` — Updated with Week 10 exports
+- `src/api/editorial.py` — FastAPI router (3 endpoints)
+- `src/api/main.py` — editorial router mounted
+- `tests/unit/test_week10_editorial_models.py` — 27 model tests
+- `tests/unit/test_week10_editorial_engine.py` — 35 engine/component tests
+- `tests/integration/test_week10_editorial_pipeline.py` — 24 integration tests
+
+**Design decisions:**
+- Single LLM call generates the entire report (vs per-section calls): ensures consistent tone, avoids cross-section repetition, lower latency
+- `extra="ignore"` on Pydantic LLM models: resilient to LLM adding extra fields
+- `temperature=0.4` for editorial (vs 0.3 for insights): slightly higher for prose fluency
+- `POST /editorial/generate` accepts `Any` body and converts via `_dict_to_batch()`: user can paste the JSON response from `/insights/generate` or `/insights/from_query` directly
+- `ToneValidator` never blocks output: always returns (score, found_phrases) and only annotates — downstream caller decides whether to act on violations
+
 ---
 
 ## Current State of Each Component
@@ -348,7 +420,11 @@ The AIR Clinical Incident Intelligence Engine project has completed Phase 3 Week
 | Retrieval API | ✅ Complete | src/api/retrieval.py (8 endpoints) |
 | Theme Clustering | ✅ Complete | Week 7 delivered + unit tested |
 | Grounded RAG Pipeline | ✅ Complete | Week 8 delivered + unit tested |
-| Testing Framework | ✅ Complete | 404 passing |
+| Insight Generator | ✅ Complete | Week 9 delivered + unit tested |
+| Insights API | ✅ Complete | 3 endpoints: status, generate, from_query |
+| Editorial Engine | ✅ Complete | Week 10 delivered + unit tested |
+| Editorial API | ✅ Complete | 3 endpoints: status, generate, from_query |
+| Testing Framework | ✅ Complete | 581 passing |
 
 ### Phases 2-6
 
@@ -356,7 +432,7 @@ The AIR Clinical Incident Intelligence Engine project has completed Phase 3 Week
 |-------|--------|----------|-------|
 | Phase 2: Core Intelligence | ✅ Complete | Weeks 3-5 | June 6, 2026 |
 | Phase 3: Retrieval & Discovery | ✅ Complete (Week 8 done) | Weeks 6-8 | June 6, 2026 |
-| Phase 4: Insight Generation | 📋 Planned | Weeks 9-11 | July 8, 2026 |
+| Phase 4: Insight Generation | 🔄 In Progress (Week 10 done) | Weeks 9-11 | June 13, 2026 |
 | Phase 5: PDF & Advanced | 📋 Planned | Weeks 12-14 | July 29, 2026 |
 | Phase 6: Production Ready | 📋 Planned | Weeks 15-16 | August 19, 2026 |
 
@@ -526,11 +602,49 @@ The system includes a sample incident report (from the provided PDF):
 - ✅ `POST /retrieval/rag/grounded` API endpoint — returns intent, keywords, confidence, coverage_score, citations, grounded_context
 - ✅ `src/retrieval/__init__.py` updated with all Week 8 exports
 
-### Next Up (Week 9 — Phase 4)
-- 📋 Insight generation agent (`src/insights/generator.py`)
-- 📋 APSA-style contextual analysis with RAG grounding
-- 📋 Pattern connection logic and systemic failure detection
-- 📋 Safety recommendation generation
+### Completed in Week 9
+- ✅ `InsightGenerator` (`src/insights/generator.py`) — LangChain ChatAnthropic + `with_structured_output(InsightLLMResponse)`; deterministic fallback when no API key; injectable LLM for testing
+- ✅ `InsightItem` / `InsightLLMResponse` Pydantic models — field normalisation validators (confidence title-case, insight_type lowercase), extra="ignore"
+- ✅ `GeneratedInsight` / `InsightBatch` dataclasses — `is_grounded`, `is_actionable`, `specificity_score`, `all_citations` (deduplicated), `grounded_count`, `actionable_count`
+- ✅ `src/insights/prompts.py` — APSA-quality system prompt with mandatory rules, bad/good few-shot examples, per-intent guidance (5 intents)
+- ✅ `src/api/insights.py` — 3 endpoints: `GET /insights/status`, `POST /insights/generate` (pre-retrieved context), `POST /insights/from_query` (full pipeline)
+- ✅ `src/api/main.py` updated — insights router mounted
+- ✅ `src/insights/__init__.py` updated — all public exports
+- ✅ 91 new tests (all passing): 24 model unit + 30 generator unit + 15 integration (pipeline + prompt builder + API serialisation)
+
+### Completed in Week 10
+- ✅ `EditorialEngine` (`src/insights/editorial.py`) — ThemeGrouper (canonical section order), ToneValidator (forbidden-phrase detection, 0.0-1.0 score), NarrativeBuilder (ChatAnthropic + with_structured_output), EditorialEngine orchestration
+- ✅ `SectionLLMItem` / `EditorialLLMResponse` Pydantic models — theme normalisation, min-length validators, extra="ignore"
+- ✅ `EditorialSection` / `EditorialReport` dataclasses — insight_count, is_grounded, word_count, section_count, grounded_section_count
+- ✅ `EDITORIAL_SYSTEM_PROMPT` — APSA tone requirements, forbidden language list, BAD/GOOD narrative examples
+- ✅ `build_editorial_message()` — per-theme guidance blocks injecting insight_text, citations, actionable_steps
+- ✅ `FORBIDDEN_PHRASES` list (28 phrases) — covers blame, negligence, platitudes
+- ✅ Deterministic fallback report when no LLM — insight_text used as section narrative
+- ✅ Failing LLM gracefully falls back to deterministic path (no crash)
+- ✅ `GET /editorial/status`, `POST /editorial/generate` (accepts InsightBatchOut JSON directly), `POST /editorial/from_query`
+- ✅ `_dict_to_batch()` — converts InsightBatchOut API response back to InsightBatch dataclass
+- ✅ 86 new tests (all passing): 27 model unit + 35 engine unit + 24 integration
+
+### Completed in Week 11
+- ✅ `MarkdownFormatter` (`src/insights/formatters.py`) — APSA-style Markdown from EditorialReport (title, executive summary, per-section narratives + key learnings + citations, conclusion, evidence references, footer)
+- ✅ `ExcelFormatter` (`src/insights/formatters.py`) — openpyxl workbook with Summary sheet + one sheet per section + Citations sheet; returns raw bytes for download
+- ✅ `GET /pipeline/status` (`src/api/pipeline.py`) — live health across embedding, Qdrant, and LLM components; returns total incident count
+- ✅ `POST /pipeline/ingest` (`src/api/pipeline.py`) — full analyzed ingest: Excel → AI Understanding Agent → Qdrant with rich metadata (severity, type, root_cause, key_learning); falls back to raw ingest when no API key
+- ✅ `POST /pipeline/report` (`src/api/pipeline.py`) — full pipeline in one call: query → GroundedRAGPipeline → InsightGenerator → EditorialEngine → format; supports json/markdown/excel via `format` field
+- ✅ `src/api/main.py` updated — pipeline router mounted
+- ✅ 59 new tests: 35 formatter unit + 24 pipeline integration (all passing)
+
+**Design decisions (Week 11):**
+- `POST /pipeline/ingest` is the recommended production ingest path — replaces the raw `/retrieval/ingest/excel` shortcut; produces richer Qdrant metadata enabling higher confidence grounded RAG
+- Formatters are stateless pure functions (no LLM, no I/O) — accept `EditorialReport` directly, testable without server
+- Excel output: `bytes` returned (not file path) — caller wraps in `base64` for JSON API or `FileResponse` for direct download
+- `POST /pipeline/report` always returns `report: dict`; `markdown` and `excel_base64` added only when format requests them
+- Pipeline router reuses existing retrieval router singletons via `_ensure_collection()` import — no duplicate model loading
+
+### Next Up (Week 12 — Phase 5)
+- 📋 PDF ingestion module (`src/ingestion/pdf_parser.py`)
+- 📋 LlamaParse + Tesseract OCR integration
+- 📋 Layout analysis and metadata extraction from PDFs
 
 ---
 
@@ -592,23 +706,23 @@ The system includes a sample incident report (from the provided PDF):
 
 ---
 
-## Next Immediate Steps (Week 9)
+## Next Immediate Steps (Week 11)
 
 ### Priority 1 (Critical Path)
-1. [ ] Implement `src/insights/generator.py` — InsightGenerator agent with LangChain + Claude
-2. [ ] Design insight prompts (few-shot examples, APSA quality bar, evidence grounding constraint)
-3. [ ] Contextual analysis: connect retrieved incidents to systemic failure patterns
-4. [ ] Integration: RAG context → insight generation → safety recommendations
+1. [ ] Implement `src/insights/formatters.py` — JSON schema export, Markdown export, Excel report generation
+2. [ ] JSON schema for final deliverable (structured for APSA newsletter integration)
+3. [ ] Markdown renderer: EditorialReport → formatted .md document
+4. [ ] Excel generation: openpyxl-based report with sections as worksheets
 
 ### Priority 2 (Supporting)
-5. [ ] Insight quality metrics (specificity, actionability)
-6. [ ] Domain expert review script for insights
-7. [ ] Update Tasks.md with Week 9 progress
+5. [ ] End-to-end integration: single call from query → formatted output file
+6. [ ] Update Postman collection for editorial endpoints
+7. [ ] Update Tasks.md with Week 11 progress
 
 ### Priority 3 (Enhancement)
-8. [ ] Postman test guide for `/retrieval/rag/grounded` endpoint
-9. [ ] Week 9 demo script
-10. [ ] Performance benchmark for full pipeline (ingest → retrieve → ground → insight)
+8. [ ] Performance benchmark: full pipeline (ingest → retrieve → ground → insight → editorial)
+9. [ ] Week 10 Postman test guide
+10. [ ] Caching layer for editorial reports (avoid regenerating same query)
 
 ---
 

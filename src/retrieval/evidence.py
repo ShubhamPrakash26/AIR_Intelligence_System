@@ -214,13 +214,16 @@ class EvidenceTracker:
                 f"[{item.relevance_grade} relevance -- score {item.best_score:.3f}]"
             )
 
-            if types := meta.get("incident_type"):
-                if isinstance(types, list):
-                    lines.append(f"    Types: {', '.join(str(t) for t in types)}")
-                else:
-                    lines.append(f"    Type: {types}")
+            types = meta.get("incident_type")
+            if isinstance(types, list):
+                filtered = [str(t) for t in types if t and str(t) != "Unknown"]
+                if filtered:
+                    lines.append(f"    Types: {', '.join(filtered)}")
+            elif types and str(types) != "Unknown":
+                lines.append(f"    Type: {types}")
 
-            if sev := meta.get("severity"):
+            sev = meta.get("severity")
+            if sev and sev != "Unknown":
                 lines.append(f"    Severity: {sev}")
 
             if surgery := meta.get("surgery_type"):
@@ -283,12 +286,15 @@ class EvidenceTracker:
         score: float,
     ) -> str:
         parts: list[str] = [f"Incident {incident_id[:12]}"]
-        if sev := meta.get("severity"):
+        sev = meta.get("severity")
+        if sev and sev != "Unknown":
             parts.append(f"severity={sev}")
         types = meta.get("incident_type")
         if isinstance(types, list) and types:
-            parts.append(f"type={types[0]}")
-        elif isinstance(types, str) and types:
+            first = types[0]
+            if first and first != "Unknown":
+                parts.append(f"type={first}")
+        elif isinstance(types, str) and types and types != "Unknown":
             parts.append(f"type={types}")
         parts.append(f"score={score:.3f}")
         return " | ".join(parts)
