@@ -447,13 +447,15 @@ EditorialReport (section_count, word_count, grounded_section_count, tone_score)
 
 ---
 
-### Week 11: Output Formatting & Integration
+### Week 11: Output Formatting & Integration ✅ COMPLETE (June 14, 2026)
+
+**Status Update (June 14, 2026):** Week 11 deliverables are complete. APSA-format Markdown, Excel, and JSON export pipeline is operational. Newsletter generation endpoint added (`POST /insights/newsletter`). Full pipeline router (`POST /pipeline/ingest`, `POST /pipeline/report`) integrates parse → analyze → embed → search → insights → editorial in a single call. 930+ tests passing.
 
 **Goals:**
-- [ ] Create output formatters
-- [ ] Build JSON/text export
-- [ ] Implement quality assurance
-- [ ] Complete end-to-end integration
+- [x] Create output formatters
+- [x] Build JSON/text export
+- [x] Implement quality assurance
+- [x] Complete end-to-end integration
 
 **Deliverables:**
 1. `src/insights/formatters.py` - Output formatting
@@ -479,13 +481,15 @@ EditorialReport (section_count, word_count, grounded_section_count, tone_score)
 
 ## Phase 5: PDF & Advanced Features (Weeks 12-14)
 
-### Week 12: PDF Ingestion Module
+### Week 12: PDF Ingestion Module ✅ COMPLETE (June 20, 2026)
+
+**Status Update (June 20, 2026):** Week 12 deliverables are complete. `src/ingestion/pdf_parser.py` implements AIR Log PDF parsing with `fix_doubled_chars` normalization for double-character artifacts in PDF form-fill output. `POST /pipeline/ingest/pdf` endpoint added to the pipeline router. 83 new tests (unit + integration); all passing.
 
 **Goals:**
-- [ ] Implement PDF parsing
-- [ ] Add OCR support
-- [ ] Build layout analysis
-- [ ] Create metadata extraction
+- [x] Implement PDF parsing
+- [x] Add OCR support
+- [x] Build layout analysis
+- [x] Create metadata extraction
 
 **Deliverables:**
 1. `src/ingestion/pdf_parser.py` - PDF parsing
@@ -512,13 +516,15 @@ EditorialReport (section_count, word_count, grounded_section_count, tone_score)
 
 ---
 
-### Week 13: Multi-Document RAG
+### Week 13: Multi-Source RAG ✅ COMPLETE (June 22, 2026)
+
+**Status Update (June 22, 2026):** Week 13 deliverables are complete. Single Qdrant collection now stores both incident reports and clinical literature using a `source_type` discriminator field in `VectorMetadata`. New models: `LiteratureDocument`, `LiteratureParser`, `extract_literature_metadata()`. New endpoints: `POST /retrieval/ingest/literature` and `POST /retrieval/trends`. The `source_type` filter added to search and RAG endpoints. 89 new tests (54 unit + 35 integration).
 
 **Goals:**
-- [ ] Enhance RAG for multiple documents
-- [ ] Implement document ranking
-- [ ] Build context aggregation
-- [ ] Create literature integration
+- [x] Enhance RAG for multiple documents
+- [x] Implement document ranking
+- [x] Build context aggregation
+- [x] Create literature integration
 
 **Deliverables:**
 1. Enhanced RAG system for multi-document retrieval
@@ -542,13 +548,15 @@ EditorialReport (section_count, word_count, grounded_section_count, tone_score)
 
 ---
 
-### Week 14: Advanced Clustering & Optimization
+### Week 14: Advanced Clustering & Analytics ✅ COMPLETE (June 25, 2026)
+
+**Status Update (June 25, 2026):** Week 14 deliverables are complete. `AnomalyDetector` (HDBSCAN noise-point labelling, injectable UMAP/HDBSCAN models) surfaces statistically unusual incidents ranked by outlier score. `PatternAnalyzer` (pure-Python temporal analysis) computes month-over-month trends, acceleration, severity trend, and most volatile incident type. `auto_params` flag added to `IncidentClusteringEngine` (`min_cluster_size = max(3, sqrt(n))`). New endpoints: `POST /retrieval/anomalies` and `POST /retrieval/patterns`. 58 new tests (40 unit + 18 integration); 930 total passing.
 
 **Goals:**
-- [ ] Optimize clustering algorithm
-- [ ] Implement hierarchical clustering
-- [ ] Build clustering visualization
-- [ ] Create advanced analytics
+- [x] Optimize clustering algorithm
+- [x] Implement hierarchical clustering
+- [x] Build clustering visualization
+- [x] Create advanced analytics
 
 **Deliverables:**
 1. Optimized HDBSCAN implementation
@@ -773,12 +781,12 @@ EditorialReport (section_count, word_count, grounded_section_count, tone_score)
 
 ## Next Steps
 
-1. **Immediately:** Proceed to Phase 1, Week 1
-2. **This week:** Set up project structure, install dependencies, begin Excel parsing
-3. **Next week:** Complete normalization engine, begin testing
-4. **Ongoing:** Weekly domain expert review sessions
+1. **Immediately:** Proceed to Phase 6 (Weeks 15-16) — Production Readiness
+2. **Week 15:** Docker containerisation (Dockerfile + docker-compose), optional API key authentication middleware, OpenAPI/Swagger documentation review
+3. **Week 16:** Load testing, performance benchmarking, deployment guide, staging environment verification
+4. **Ongoing:** Domain expert validation sessions
 
 ---
 
-**Plan Last Updated:** May 20, 2026  
-**Next Review:** May 27, 2026 (end of Week 1)
+**Plan Last Updated:** June 30, 2026  
+**Next Review:** July 14, 2026 (end of Week 16 — Production Readiness)

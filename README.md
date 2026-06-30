@@ -1,7 +1,7 @@
 # AIR Clinical Incident Intelligence Engine
 
 **Version:** 1.0.0  
-**Status:** Phase 2 - Core Intelligence (Week 4 Complete)
+**Status:** Phase 5 Complete — Phase 6: Production Readiness (Weeks 15-16) Next
 
 ## Overview
 
@@ -111,71 +111,72 @@ AIR_Intelligence_System/
 
 ## Development Roadmap
 
-### Phase 1: Data Foundation (Weeks 1-2) 🔄
+### Phase 1: Data Foundation (Weeks 1-2) ✅ Complete
 - [x] Project initialization
-- [ ] Excel parsing module
-- [ ] Data normalization engine
-- [ ] Schema validation
+- [x] Excel parsing module
+- [x] Data normalization engine
+- [x] Schema validation
 
-### Phase 2: Core Intelligence (Weeks 3-5) ⏳
-- [x] Incident understanding agent
+### Phase 2: Core Intelligence (Weeks 3-5) ✅ Complete
+- [x] Incident understanding agent (Claude LLM)
 - [x] Validation layer
-- [ ] Embedding generation
-- [ ] Vector store integration
+- [x] Embedding generation (BGE-M3)
+- [x] Vector store integration (Qdrant)
 
-### Phase 3: Retrieval & Discovery (Weeks 6-8) ⏳
-- [ ] Similarity search
-- [ ] Theme clustering
-- [ ] RAG integration
+### Phase 3: Retrieval & Discovery (Weeks 6-8) ✅ Complete
+- [x] Similarity search + cross-encoder reranking
+- [x] Theme clustering (HDBSCAN + UMAP)
+- [x] RAG integration (standard + grounded)
 
-### Phase 4: Insight Generation (Weeks 9-11) ⏳
-- [ ] Insight generation agent
-- [ ] Editorial intelligence layer
-- [ ] Output formatting
+### Phase 4: Insight Generation (Weeks 9-11) ✅ Complete
+- [x] Insight generation agent (APSA-style)
+- [x] Editorial intelligence layer (ToneValidator, NarrativeBuilder)
+- [x] Output formatting (Markdown, Excel, JSON) + pipeline router
 
-### Phase 5: PDF & Advanced (Weeks 12-14) ⏳
-- [ ] PDF ingestion
-- [ ] Multi-document RAG
-- [ ] Advanced clustering
+### Phase 5: PDF & Advanced (Weeks 12-14) ✅ Complete
+- [x] PDF ingestion (`fix_doubled_chars` normalizer)
+- [x] Multi-source RAG (incidents + literature, single Qdrant collection)
+- [x] Anomaly detection + temporal pattern analysis
 
-### Phase 6: Production Readiness (Weeks 15-16) ⏳
-- [ ] FastAPI application
-- [ ] Comprehensive testing
-- [ ] Complete documentation
+### Phase 6: Production Readiness (Weeks 15-16) 🔄 In Progress
+- [ ] Docker containerisation
+- [ ] API authentication
+- [ ] Load testing & benchmarking
+- [ ] Complete documentation & deployment guide
 
 ## Key Features
 
 ### Data Ingestion
 - ✅ Excel (.xlsx, .xls, .csv) support
-- 📋 PDF document support (coming soon)
-- 📋 Multiple incident sources
-- 📋 Batch processing
+- ✅ PDF document support (AIR Log form-fill PDFs, `fix_doubled_chars` normalizer)
+- ✅ Clinical literature batch ingest (JSON)
+- ✅ Batch processing
 
 ### AI Pipeline
-- 📋 Clinical incident understanding
-- 📋 Severity analysis
-- 📋 Root cause analysis
-- 📋 Multi-label classification
-- 📋 Confidence scoring
+- ✅ Clinical incident understanding (Claude LLM, LangChain)
+- ✅ Severity analysis
+- ✅ Root cause analysis
+- ✅ Multi-label classification
+- ✅ Confidence scoring + validation layer
 
 ### Vector Intelligence
-- 📋 Semantic embedding (BGE-M3)
-- 📋 Qdrant vector store
-- 📋 Similarity search
-- 📋 Metadata filtering
-- 📋 Hybrid retrieval
+- ✅ Semantic embedding (BGE-M3, 1024-dim)
+- ✅ Qdrant vector store (in-memory + remote)
+- ✅ Similarity search + cross-encoder reranking
+- ✅ Metadata filtering (severity, surgery type, year, source type)
+- ✅ Multi-source retrieval (incidents + literature, single collection)
 
 ### Retrieval & Learning
-- 📋 RAG-grounded retrieval
-- 📋 Theme clustering (HDBSCAN)
-- 📋 Pattern detection
-- 📋 Historical context
+- ✅ RAG-grounded retrieval (standard + grounded with evidence tracking)
+- ✅ Theme clustering (HDBSCAN + UMAP, auto_params mode)
+- ✅ Anomaly detection (HDBSCAN noise-point labelling)
+- ✅ Temporal pattern analysis (trend direction, acceleration, severity trend)
 
 ### Insight Generation
-- 📋 Clinical reasoning
-- 📋 Safety recommendations
-- 📋 Editorial intelligence
-- 📋 APSA-style narratives
+- ✅ Clinical reasoning (InsightGenerator, APSA system prompt)
+- ✅ Safety recommendations
+- ✅ Editorial intelligence (ToneValidator, 28 forbidden phrases, NarrativeBuilder)
+- ✅ APSA-style Markdown / Excel / JSON output
 
 ## Testing
 
@@ -264,6 +265,6 @@ For issues, questions, or contributions, please refer to the project documentati
 
 ---
 
-**Last Updated:** May 20, 2026  
-**Current Phase:** Phase 1 - Data Foundation (Week 1)  
-**Next Milestone:** Complete Excel parsing and normalization (May 27, 2026)
+**Last Updated:** June 30, 2026  
+**Current Phase:** Phase 5 Complete — Phase 6: Production Readiness (Weeks 15-16)  
+**Next Milestone:** Docker containerisation, API auth, load testing, deployment guide
