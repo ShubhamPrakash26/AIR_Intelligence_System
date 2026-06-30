@@ -53,11 +53,18 @@ class SearchFilters:
     surgery_type: str | None = None
     year: int | None = None
     incident_type: str | None = None
+    source_type: str | None = None
 
     def is_empty(self) -> bool:
         return all(
             v is None
-            for v in (self.severity, self.surgery_type, self.year, self.incident_type)
+            for v in (
+                self.severity,
+                self.surgery_type,
+                self.year,
+                self.incident_type,
+                self.source_type,
+            )
         )
 
     def to_qdrant_filter(self) -> Any | None:
@@ -91,6 +98,10 @@ class SearchFilters:
                     key="incident_type",
                     match=MatchAny(any=[self.incident_type]),
                 )
+            )
+        if self.source_type is not None:
+            conditions.append(
+                FieldCondition(key="source_type", match=MatchValue(value=self.source_type))
             )
 
         return Filter(must=conditions) if conditions else None

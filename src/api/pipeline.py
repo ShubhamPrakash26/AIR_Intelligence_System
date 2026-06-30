@@ -359,6 +359,124 @@ async def pipeline_report(req: PipelineReportRequest) -> PipelineReportResponse:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+class PDFIngestResult(BaseModel):
+    ingested: int
+    analyzed: int
+    failed_analysis: int
+    incident_ids: list[str]
+    collection: str
+    dimension: int
+    note: str
+
+
+@router.post("/ingest/pdf", response_model=PDFIngestResult)
+async def pipeline_ingest_pdf(file: UploadFile = File(...)) -> PDFIngestResult:
+    """Full analyzed ingest: PDF → parse → AI analyze → Qdrant.
+
+    Accepts a single AIR Anesthesia Incident Report PDF (AIR Log format).
+    Applies the doubled-character fix, maps form fields to the Incident model,
+    optionally runs the Incident Understanding Agent, and upserts into Qdrant.
+
+    Follows the same AI-enrichment pattern as ``POST /pipeline/ingest`` for
+    Excel files: when ``ANTHROPIC_API_KEY`` is set, every parsed incident is
+    analyzed for severity, incident_type, root_cause, and key_learning before
+    storage.  Without a key the raw parsed incident is stored directly.
+    """
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file must be a PDF (.pdf extension required).",
+        )
+
+    with NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp_path = Path(tmp.name)
+        shutil.copyfileobj(file.file, tmp)
+
+    try:
+        from src.ingestion.pdf_parser import PDFParser
+
+        incidents = PDFParser().parse_file(tmp_path)
+        if not incidents:
+            raise HTTPException(
+                status_code=400,
+                detail="No incidents could be parsed from the uploaded PDF.",
+            )
+
+        # Rename the source_file field to the original filename
+        for inc in incidents:
+            if inc.raw_data:
+                inc.raw_data["source_file"] = file.filename
+            if inc.metadata:
+                inc.metadata.source_file = file.filename
+
+        # AI analysis (same pattern as /pipeline/ingest)
+        analysis_map: dict[str, Any] = {}
+        failed = 0
+        note = "Raw PDF ingest — no ANTHROPIC_API_KEY; metadata will be empty."
+
+        if settings.anthropic_api_key:
+            from src.incident.understanding_agent import IncidentUnderstandingAgent
+            from src.validation import ValidationAgent
+
+            agent = IncidentUnderstandingAgent()
+            validator = ValidationAgent()
+            for incident in incidents:
+                try:
+                    raw = agent.analyze_incident(incident).analysis
+                    validated = validator.apply(incident, raw)
+                    analysis_map[incident.incident_id] = validated
+                except Exception as exc:
+                    logger.warning(
+                        "PDF ingest: analysis failed for %s: %s",
+                        incident.incident_id,
+                        exc,
+                    )
+                    failed += 1
+            note = (
+                f"Analyzed PDF ingest — {len(analysis_map)} incident(s) with AI metadata, "
+                f"{failed} fell back to raw."
+            )
+
+        # Embed + store
+        from src.vector_store.metadata import extract_metadata
+
+        engine, store = _get_retrieval_components()
+        stored_ids: list[str] = []
+        for incident in incidents:
+            analysis = analysis_map.get(incident.incident_id)
+            result = engine.embed_incident(incident, analysis)
+            metadata = extract_metadata(incident, analysis)
+            store.upsert(incident.incident_id, result.vector, metadata)
+            stored_ids.append(incident.incident_id)
+
+        logger.info(
+            "pipeline/ingest/pdf: %d stored, %d analyzed, %d failed",
+            len(stored_ids),
+            len(analysis_map),
+            failed,
+        )
+        return PDFIngestResult(
+            ingested=len(stored_ids),
+            analyzed=len(analysis_map),
+            failed_analysis=failed,
+            incident_ids=stored_ids,
+            collection=store.collection_name,
+            dimension=engine.dimension,
+            note=note,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("PDF ingest failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        try:
+            tmp_path.unlink()
+        except Exception:
+            pass
+
+
 @router.post("/newsletter", response_model=NewsletterResponse)
 async def generate_newsletter(req: NewsletterRequest) -> NewsletterResponse:
     """Generate a monthly APSA-style newsletter from top incidents in Qdrant.

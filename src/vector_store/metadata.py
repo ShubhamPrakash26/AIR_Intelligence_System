@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 from src.models.analysis import AIAnalysis, VectorMetadata
 from src.models.incident import Incident
+from src.models.literature import LiteratureDocument
 
 
 def extract_metadata(
@@ -58,6 +59,53 @@ def extract_metadata(
         year=incident.metadata.year,
         source=incident.metadata.source_file or "unknown",
         timestamp=now,
+    )
+
+
+def extract_literature_metadata(document: LiteratureDocument) -> VectorMetadata:
+    """Build a VectorMetadata payload from a LiteratureDocument.
+
+    Maps literature document fields onto the VectorMetadata schema so that
+    documents can coexist with incident reports in the same Qdrant collection.
+    The ``source_type`` field distinguishes them from incident reports.
+
+    Field mapping:
+        incident_id   → document.document_id
+        incident_type → document.keywords (capped at 5) or ["Literature"]
+        severity      → "Reference"   (not applicable for literature)
+        surgery_type  → "Literature"  (not a clinical incident)
+        root_cause    → first 500 chars of document.content (abstract/summary)
+        key_learning  → document.citation_string
+        title         → document.title
+        source_type   → document.source_type
+        source        → document.doi or document.journal or document.raw_data source_file
+    """
+    now = datetime.now(timezone.utc).isoformat()
+
+    incident_types = (
+        document.keywords[:5] if document.keywords else ["Literature"]
+    )
+
+    source = (
+        document.doi
+        or document.journal
+        or document.raw_data.get("source_file", "unknown")
+    )
+
+    return VectorMetadata(
+        incident_id=document.document_id,
+        incident_type=incident_types,
+        severity="Reference",
+        severity_score=0.0,
+        surgery_type="Literature",
+        root_cause=document.content[:500],
+        key_learning=document.citation_string,
+        month=str(document.year) if document.year else None,
+        year=document.year,
+        source=source or "unknown",
+        timestamp=now,
+        source_type=document.source_type,
+        title=document.title,
     )
 
 

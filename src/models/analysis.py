@@ -193,6 +193,14 @@ class VectorMetadata(BaseModel):
     year: int | None = Field(None, description="Year of incident")
     source: str = Field(..., description="Data source")
     timestamp: str = Field(..., description="ISO timestamp")
+    source_type: str = Field(
+        default="incident_report",
+        description="Origin type: 'incident_report', 'literature', 'guideline', 'protocol'",
+    )
+    title: str | None = Field(
+        None,
+        description="Document title (used for literature/guidelines; None for incident reports)",
+    )
 
     model_config = ConfigDict(
         json_schema_extra={

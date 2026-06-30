@@ -1,22 +1,21 @@
 # AIR Intelligence System - Development Status
 
-**Last Updated:** June 14, 2026  
-**Phase:** Phase 4 - Insight Generation (Week 11 Complete)  
-**Overall Progress:** 69% Complete (Week 11 of 16)
+**Last Updated:** June 25, 2026  
+**Phase:** Phase 5 Complete — Phase 6: Production Readiness (Weeks 15-16) Next  
+**Overall Progress:** 90% Complete (Weeks 1-14 done, Phase 6 of 6 next)
 
 ---
 
 ## Executive Summary
 
-The AIR Clinical Incident Intelligence Engine project has completed Phase 4 Week 10 Editorial Intelligence. Weeks 1-10 are implemented and validated. Week 10 adds the EditorialEngine: a full APSA-newsletter-style report generator that transforms InsightBatch output into polished prose with thematic sections, executive summaries, tone validation, and a single-call `/editorial/from_query` endpoint spanning the full pipeline.
+The AIR Clinical Incident Intelligence Engine has completed all 5 core phases (Weeks 1-14). The full pipeline is operational: PDF/Excel → AI analysis → Qdrant → RAG → Insights → Editorial → APSA-style Markdown/Excel/JSON. Week 14 adds anomaly detection (`POST /retrieval/anomalies` — HDBSCAN noise-point labelling to surface statistically unusual incidents) and temporal pattern analysis (`POST /retrieval/patterns` — month-over-month trend direction, acceleration, severity trend, most volatile incident type). Phase 6 (Production Readiness: Docker, auth, load testing, documentation) is the final remaining phase.
 
 ### Key Metrics
 
-- **Files Created:** 86+
-- **Lines of Code:** ~13,200+
-- **Automated Tests Passing:** 640 (1 skipped — LLM integration, guarded by API key)
-- **New Week 11 Tests:** 59 (35 formatter unit + 24 pipeline integration)
-- **Current Coverage:** 84%
+- **Files Created:** 90+
+- **Lines of Code:** ~14,000+
+- **Automated Tests Passing:** 930 (1 skipped — LLM integration, guarded by API key)
+- **Current Coverage:** 81%
 - **Documentation:** 4 comprehensive guides + 7 detailed documents
 - **Code Quality:** Type-hinted, fully documented, linted
 
@@ -362,6 +361,103 @@ The AIR Clinical Incident Intelligence Engine project has completed Phase 4 Week
 - `POST /insights/from_query` creates GroundedRAGPipeline inline (same singleton pattern as `/retrieval/rag/grounded`)
 - Temperature 0.3 (not 0.7): lower temp for factual, grounded clinical output
 
+### 17. Week 12: PDF Ingestion Module ✅
+
+**Status:** Complete — June 25, 2026
+
+- [x] `fix_doubled_chars(text)` — deduplication algorithm for the AIR Log PDF encoding artefact (all form field values have every character doubled: "PPrriimmaarryy" → "Primary"); handles natural double letters, Roman numerals, hyphenated tokens, parenthesised tokens
+- [x] `PDFParser` class — `parse_file(path)` and `parse_directory(directory)` with per-file error isolation
+- [x] `_parse_sections()` — splits fixed PDF text by 12 known section headers into named dict; falls back gracefully when headers are absent
+- [x] Field extraction helpers — `_field()`, `_float_field()`, `_outcome_category()`, `_primary_technique()`, `_intubation_type()`, `_monitoring()`, `_incident_types()`, `_reviewer_field()`
+- [x] `_build_incident()` — maps Basic Information / Procedure Information / Incident Narrative / Anesthesia Technique / Monitoring Used / Incident Demographics / Patient Outcome / Reviewer sections to all Incident sub-models
+- [x] Harm severity mapping — outcome category letter A-I → None/Low/Moderate/High/Critical
+- [x] Filename date extraction — `_AIRLog_YYYYMMDD_` pattern → `metadata.month` + `metadata.year`
+- [x] `POST /pipeline/ingest/pdf` endpoint — upload PDF → PDFParser → optional AI analysis → Qdrant; same analyzed-ingest pattern as `/pipeline/ingest`
+- [x] `PDFIngestResult` response model — mirrors `PipelineIngestResult`
+- [x] 133 new tests: 96 unit + 37 integration (with all 3 real AIR Log PDFs)
+
+**Files:**
+- `src/ingestion/pdf_parser.py` — PDFParser, fix_doubled_chars, _HARM_SEVERITY
+- `src/api/pipeline.py` — PDFIngestResult model + POST /pipeline/ingest/pdf endpoint
+- `tests/unit/test_week12_pdf_parser.py` — 96 unit tests
+- `tests/integration/test_week12_pdf_pipeline.py` — 37 integration tests
+
+**Design decisions:**
+- Used pdfplumber (already installed) instead of LlamaParse or Tesseract — AIR Log PDFs are digital form-fill (not scanned), so OCR is unnecessary
+- Doubled-character fix applied to entire extracted text before parsing — section header labels are not doubled (static form text), so applying globally is safe
+- Procedure field uses line-anchored pattern to avoid matching "Type of Procedure:" when extracting "Procedure:"
+- Outcome category regex matches "D2", "D1" sub-categories by allowing an optional digit after the letter
+- Extension check runs before existence check — allows clear ValueError vs FileNotFoundError distinction in tests
+
+---
+
+### 18. Week 13: Multi-Source RAG ✅
+
+**Status:** Complete — June 25, 2026
+
+- [x] `VectorMetadata.source_type` — new backward-compatible field (default `"incident_report"`) distinguishing incidents from literature in the same Qdrant collection; `title` field added for document display
+- [x] `src/models/literature.py` — `LiteratureDocument` dataclass with `create()` factory, `embeddable_text` property (title + keywords + content), `citation_string` property (Vancouver-style)
+- [x] `src/ingestion/literature_parser.py` — `LiteratureParser` with `parse_text()`, `parse_pdf()` (plain pdfplumber, no doubled-char fix), `parse_json_batch()` (accepts `abstract` as fallback for `content`); validates and coerces `source_type`; auto-extracts clinical keywords
+- [x] `EmbeddingEngine.embed_document(document)` — embeds a `LiteratureDocument` using `embeddable_text`; raises `TypeError` on wrong type
+- [x] `extract_literature_metadata(document)` — maps `LiteratureDocument` to `VectorMetadata` with `severity="Reference"`, `surgery_type="Literature"`, and `source_type` preserved
+- [x] `SearchFilters.source_type` — new optional field; `is_empty()` and `to_qdrant_filter()` both updated; enables `source_type="incident_report"` or `"literature"` filter in all search endpoints
+- [x] `POST /retrieval/ingest/literature` — JSON batch ingest; `LiteratureIngestRequest` + `LiteratureIngestResult` Pydantic models
+- [x] `POST /retrieval/trends` — scroll_all → aggregate by (year, month) → severity distribution + source_type breakdown → top-5 incident types; `TrendBucket` + `TrendsResponse` Pydantic models
+- [x] 89 new tests: 54 unit + 35 integration (all passing)
+
+**Files:**
+- `src/models/literature.py` — LiteratureDocument dataclass
+- `src/ingestion/literature_parser.py` — LiteratureParser
+- `src/models/analysis.py` — VectorMetadata extended (source_type, title)
+- `src/embeddings/engine.py` — embed_document() added
+- `src/vector_store/metadata.py` — extract_literature_metadata() added
+- `src/retrieval/similarity_search.py` — SearchFilters.source_type added
+- `src/api/retrieval.py` — POST /retrieval/ingest/literature + POST /retrieval/trends
+- `tests/unit/test_week13_literature.py` — 54 unit tests
+- `tests/integration/test_week13_cross_source.py` — 35 integration tests
+
+**Design decisions:**
+- Single-collection approach: literature shares the `incidents` Qdrant collection with `source_type` as discriminator; avoids per-source-type collection management overhead and enables natural cross-source RAG by default
+- `severity="Reference"` sentinel: allows literature to be excluded from clinical severity-based filters without a separate code path
+- `abstract` accepted as fallback for `content` in JSON batch — most PubMed/CrossRef records use `abstract` not `content`
+- `_extract_keywords()` scans 30+ clinical domain terms so auto-extracted keywords improve vector quality when none are supplied
+
+---
+
+### 16. Week 11 + APSA Format Alignment ✅
+
+**Status:** Complete — June 25, 2026
+
+- [x] `MarkdownFormatter` rewritten for strict APSA format: evocative title, case vignette prose, flowing section paragraphs, academic references, no "Key Learning" blocks or incident ID citation lists
+- [x] `EditorialLLMResponse` extended with `evocative_title` (journalistic headline) and `clinical_references` (Vancouver-format academic citations)
+- [x] `EditorialReport` extended with `evocative_title` and `clinical_references` (both optional with defaults — backward-compatible)
+- [x] `EDITORIAL_SYSTEM_PROMPT` updated to request journalistic title + academic references in JSON output
+- [x] `APSA_INCIDENT_SYSTEM_PROMPT` — new per-incident prompt generating: evocative title, anonymous case vignette, 3-5 educational body paragraphs, 4-6 real academic citations
+- [x] `build_incident_editorial_message(metadata)` — formats Qdrant payload into per-incident LLM message
+- [x] `IncidentEditorialEngine` — generates one `APSAArticle` per Qdrant incident; fallback without LLM
+- [x] `APSAArticle` dataclass — article_id, title, vignette, body, clinical_references, incident_metadata
+- [x] `APSANewsletterFormatter` — bundles N `APSAArticle` instances into one newsletter Markdown document
+- [x] `POST /pipeline/newsletter` — scroll Qdrant → filter by month/year → sort by severity → top-k → generate articles → optional Markdown newsletter
+- [x] `_month_matches()` — handles int, numeric string, and month-name formats
+- [x] 10 new `APSANewsletterFormatter` unit tests; all 650 tests passing
+
+**Files:**
+- `src/insights/formatters.py` — MarkdownFormatter (APSA-aligned) + APSANewsletterFormatter (new)
+- `src/insights/editorial_models.py` — IncidentEditorialLLMResponse + APSAArticle (new); EditorialLLMResponse + EditorialReport extended
+- `src/insights/editorial_prompts.py` — APSA_INCIDENT_SYSTEM_PROMPT + build_incident_editorial_message() (new); EDITORIAL_SYSTEM_PROMPT updated
+- `src/insights/editorial.py` — IncidentEditorialEngine (new); _llm_report updated for new fields
+- `src/api/pipeline.py` — NewsletterRequest/ArticleOut/Response models + POST /pipeline/newsletter (new)
+- `tests/unit/test_week11_formatters.py` — Fully updated for APSA format; new APSANewsletterFormatter tests
+
+**Design decisions:**
+- `MarkdownFormatter` uses `evocative_title` when present, falls back to `report.title` — backward-compatible with existing API responses
+- Academic references shown when `clinical_references` is populated; incident IDs shown as fallback (`Supporting Incident Evidence`)
+- `IncidentEditorialEngine` is separate from `EditorialEngine` — different prompt, different use case (per-incident educational article vs multi-incident thematic analysis)
+- Newsletter month filter falls back to all incidents if month filter returns empty (logged as warning)
+- Academic references include note "should be verified before publication" — LLM may hallucinate bibliographic details
+
+---
+
 ### 15. Week 10: Editorial Intelligence Layer ✅
 
 **Status:** Complete — June 13, 2026
@@ -424,21 +520,47 @@ The AIR Clinical Incident Intelligence Engine project has completed Phase 4 Week
 | Insights API | ✅ Complete | 3 endpoints: status, generate, from_query |
 | Editorial Engine | ✅ Complete | Week 10 delivered + unit tested |
 | Editorial API | ✅ Complete | 3 endpoints: status, generate, from_query |
-| Testing Framework | ✅ Complete | 581 passing |
+| Output Formatters | ✅ Complete | MarkdownFormatter (APSA-aligned) + ExcelFormatter + APSANewsletterFormatter |
+| Pipeline API | ✅ Complete | 4 endpoints: status, ingest, report, newsletter |
+| Newsletter Engine | ✅ Complete | IncidentEditorialEngine + APSAArticle + POST /pipeline/newsletter |
+| PDF Parser | ✅ Complete | pdfplumber + fix_doubled_chars + PDFParser + POST /pipeline/ingest/pdf |
+| Testing Framework | ✅ Complete | 783 passing, 1 skipped |
 
 ### Phases 2-6
 
 | Phase | Status | Duration | Start |
 |-------|--------|----------|-------|
 | Phase 2: Core Intelligence | ✅ Complete | Weeks 3-5 | June 6, 2026 |
-| Phase 3: Retrieval & Discovery | ✅ Complete (Week 8 done) | Weeks 6-8 | June 6, 2026 |
-| Phase 4: Insight Generation | 🔄 In Progress (Week 10 done) | Weeks 9-11 | June 13, 2026 |
-| Phase 5: PDF & Advanced | 📋 Planned | Weeks 12-14 | July 29, 2026 |
-| Phase 6: Production Ready | 📋 Planned | Weeks 15-16 | August 19, 2026 |
+| Phase 3: Retrieval & Discovery | ✅ Complete | Weeks 6-8 | June 6, 2026 |
+| Phase 4: Insight Generation | ✅ Complete | Weeks 9-11 | June 13, 2026 |
+| Phase 5: PDF & Advanced | ✅ Complete | Weeks 12-14 | June 25, 2026 |
+| Phase 6: Production Ready | 📋 Planned | Weeks 15-16 | TBD |
 
 ---
 
 ## Manual Validation Log
+
+### Week 12 — Live curl Testing (June 25, 2026)
+
+All new PDF + newsletter endpoints validated against a live FastAPI server with the 3 real AIR Log PDFs.
+
+| Endpoint | Test | Result |
+|----------|------|--------|
+| `POST /pipeline/ingest/pdf` | Upload 110939.pdf (equipment failure, Gynecology) | PASS — `ingested:1, analyzed:1`, UUID returned |
+| `POST /pipeline/ingest/pdf` | Upload 111045.pdf (retained throat pack, Neurosurgery) | PASS — `ingested:1, analyzed:1` |
+| `POST /pipeline/ingest/pdf` | Upload 111120.pdf (difficult intubation, Vascular) | PASS — `ingested:1, analyzed:1` |
+| `GET /pipeline/status` | After all 3 PDFs ingested | PASS — `total_incidents: 3`, `qdrant_status: ready`, `llm_available: true` |
+| `POST /pipeline/report` | Query "airway incidents and difficult intubation", format: markdown | PASS — evocative title, 3-stage grounded editorial, 6 Vancouver references |
+| `POST /pipeline/newsletter` | `month: 2026-04`, `top_k: 3`, format: markdown | PASS — 3 APSA articles with correct evocative titles per incident type |
+
+**Key behaviour confirmed (June 25):**
+- `fix_doubled_chars()` correctly decoded all PDF form field values — no garbled text in output
+- AI analysis (`analyzed: 1` for each PDF) confirms `ANTHROPIC_API_KEY` active; `IncidentUnderstandingAgent` ran successfully
+- Newsletter month filter matched April 2026 (extracted from `_20260419_` filename pattern)
+- APSA article titles per incident: equipment failure → "PRESSURE WITHOUT PURPOSE...", difficult intubation → "WHEN THE BLADE FAILS...", throat pack → "PACKED AND FORGOTTEN..."
+- Full pipeline stages: `retrieval → insight_generation → editorial → markdown_format`
+
+---
 
 ### Week 5 + Week 6 — Postman Live Testing (June 6, 2026)
 
@@ -641,10 +763,37 @@ The system includes a sample incident report (from the provided PDF):
 - `POST /pipeline/report` always returns `report: dict`; `markdown` and `excel_base64` added only when format requests them
 - Pipeline router reuses existing retrieval router singletons via `_ensure_collection()` import — no duplicate model loading
 
-### Next Up (Week 12 — Phase 5)
-- 📋 PDF ingestion module (`src/ingestion/pdf_parser.py`)
-- 📋 LlamaParse + Tesseract OCR integration
-- 📋 Layout analysis and metadata extraction from PDFs
+### 19. Week 14: Advanced Clustering & Analytics ✅
+
+**Status:** Complete — June 25, 2026
+
+- [x] `src/retrieval/anomaly_detector.py` — `AnomalyDetector` with injectable UMAP/HDBSCAN models; `AnomalyResult` (incident_id, outlier_score, severity, surgery_type, incident_type, root_cause, reason); `AnomalyDetectionResult`
+- [x] HDBSCAN `prediction_data=True` — exposes `outlier_scores_` (0–1 per point); anomalies ranked most-anomalous first
+- [x] `src/retrieval/pattern_analyzer.py` — pure-Python `PatternAnalyzer`; `PeriodStats` (count, dominant_types, severity_distribution, rate_change_pct, avg_severity_weight); `PatternAnalysis` (trend_direction, acceleration, severity_trend, most_volatile_type, insight)
+- [x] `IncidentClusteringEngine.auto_params` — when True, `min_cluster_size = max(3, int(sqrt(n)))` scales with dataset size
+- [x] `POST /retrieval/anomalies` — `AnomalyRequest` (min_cluster_size, auto_params, top_n) → `AnomalyResponse`; literature excluded automatically
+- [x] `POST /retrieval/patterns` — no body; `PatternResponse` with all period stats and trend metadata
+- [x] 58 new tests: 40 unit + 18 integration (all passing)
+
+**Files:**
+- `src/retrieval/anomaly_detector.py` — AnomalyDetector, AnomalyResult, AnomalyDetectionResult
+- `src/retrieval/pattern_analyzer.py` — PatternAnalyzer, PeriodStats, PatternAnalysis
+- `src/retrieval/clustering.py` — auto_params flag added
+- `src/api/retrieval.py` — POST /retrieval/anomalies + POST /retrieval/patterns + AnomalyRequest/Response + PatternResponse + ClusterRequest.auto_params
+- `tests/unit/test_week14_analytics.py` — 40 unit tests
+- `tests/integration/test_week14_advanced_clustering.py` — 18 integration tests
+
+**Design decisions:**
+- Anomaly detector reuses the same UMAP+HDBSCAN pipeline as clustering — single code path for both features
+- PatternAnalyzer is pure Python (O(n), no ML) — runs instantly even on large collections; no model loading
+- Literature auto-excluded from anomaly and pattern endpoints since `severity="Reference"` would distort clinical trend signals
+- `most_volatile_type` uses per-type count variance across periods — identifies incident categories with the most erratic frequency
+
+### Next Up (Phase 6 — Production Readiness)
+- 📋 Docker containerisation (Dockerfile + docker-compose)
+- 📋 API authentication (optional API key middleware)
+- 📋 Load testing + performance benchmarking
+- 📋 API documentation (OpenAPI / Swagger already auto-generated by FastAPI)
 
 ---
 

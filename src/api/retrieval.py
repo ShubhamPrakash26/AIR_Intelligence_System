@@ -105,6 +105,7 @@ class SearchRequest(BaseModel):
     surgery_type: str | None = Field(None, description="Filter by surgical specialty")
     year: int | None = Field(None, description="Filter by incident year")
     incident_type: str | None = Field(None, description="Filter by incident type (array-contains)")
+    source_type: str | None = Field(None, description="Filter by source type: 'incident_report', 'literature', 'guideline', 'protocol'")
 
 
 class SimilarRequest(BaseModel):
@@ -121,6 +122,7 @@ class RAGRequest(BaseModel):
     surgery_type: str | None = None
     year: int | None = None
     incident_type: str | None = None
+    source_type: str | None = Field(None, description="Filter by source type: 'incident_report', 'literature', 'guideline', 'protocol'")
 
 
 class IngestResult(BaseModel):
@@ -170,12 +172,13 @@ class RAGResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _build_filters(severity, surgery_type, year, incident_type) -> SearchFilters | None:
+def _build_filters(severity, surgery_type, year, incident_type, source_type=None) -> SearchFilters | None:
     f = SearchFilters(
         severity=severity,
         surgery_type=surgery_type,
         year=year,
         incident_type=incident_type,
+        source_type=source_type,
     )
     return None if f.is_empty() else f
 
@@ -361,7 +364,7 @@ async def search(req: SearchRequest) -> dict[str, Any]:
     try:
         engine, store = _ensure_collection()
         search_engine = SimilaritySearchEngine(engine, store)
-        filters = _build_filters(req.severity, req.surgery_type, req.year, req.incident_type)
+        filters = _build_filters(req.severity, req.surgery_type, req.year, req.incident_type, getattr(req, "source_type", None))
         results = search_engine.search_by_text(req.query, top_k=req.top_k, filters=filters)
         return {
             "query": req.query,
@@ -433,7 +436,7 @@ async def rag_retrieve(req: RAGRequest) -> RAGResponse:
             reranker = CrossEncoderReranker()
 
         retriever = RAGRetriever.from_components(engine, store, reranker=reranker)
-        filters = _build_filters(req.severity, req.surgery_type, req.year, req.incident_type)
+        filters = _build_filters(req.severity, req.surgery_type, req.year, req.incident_type, getattr(req, "source_type", None))
         ctx = retriever.retrieve(req.query, top_k=req.top_k, rerank=req.rerank, filters=filters)
 
         final = ctx.final_results
@@ -484,6 +487,10 @@ class ClusterRequest(BaseModel):
     use_llm_naming: bool = Field(
         False,
         description="Use LLM for theme naming (requires ANTHROPIC_API_KEY; slower)",
+    )
+    auto_params: bool = Field(
+        False,
+        description="Auto-tune min_cluster_size as max(3, sqrt(n)) for the dataset size",
     )
 
 
@@ -539,6 +546,7 @@ async def cluster_incidents(req: ClusterRequest = Body(default=ClusterRequest())
         engine = IncidentClusteringEngine(
             min_cluster_size=req.min_cluster_size,
             min_samples=max(1, req.min_cluster_size - 1),
+            auto_params=req.auto_params,
         )
         extractor = ThemeExtractor() if req.use_llm_naming else None
 
@@ -709,3 +717,408 @@ async def grounded_rag(
     except Exception as e:
         logger.exception("Grounded RAG failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Literature ingestion (Week 13)
+# ---------------------------------------------------------------------------
+
+
+class LiteratureIngestRequest(BaseModel):
+    documents: list[dict[str, Any]] = Field(
+        ...,
+        min_length=1,
+        description=(
+            "List of document dicts.  Each must have 'title' and 'content' (or 'abstract'). "
+            "Optional: 'source_type' ('literature'|'guideline'|'protocol'), 'authors', "
+            "'year', 'doi', 'journal', 'keywords'."
+        ),
+    )
+    default_source_type: str = Field(
+        "literature",
+        description="Fallback source_type when a record omits it.",
+    )
+
+
+class LiteratureIngestResult(BaseModel):
+    ingested: int
+    failed: int
+    document_ids: list[str]
+    collection: str
+    dimension: int
+    note: str
+
+
+@router.post("/ingest/literature", response_model=LiteratureIngestResult)
+async def ingest_literature(req: LiteratureIngestRequest) -> LiteratureIngestResult:
+    """Ingest clinical literature documents (guidelines, papers, protocols) into Qdrant.
+
+    Documents are stored in the **same collection** as incident reports, with
+    ``source_type = "literature" | "guideline" | "protocol"`` in the payload
+    so they can be filtered separately or retrieved alongside incidents in a
+    cross-source search.
+
+    Each document is embedded using the same ``EmbeddingEngine`` (BGE-M3) as
+    incidents.  The embeddable text is ``title + keywords + content``.
+
+    **Required fields per document:** ``title``, ``content`` (or ``abstract``)
+
+    **Optional fields:** ``source_type``, ``authors``, ``year``, ``doi``,
+    ``journal``, ``keywords``
+    """
+    from src.ingestion.literature_parser import LiteratureParser
+    from src.vector_store.metadata import extract_literature_metadata
+
+    parser = LiteratureParser()
+    documents = parser.parse_json_batch(req.documents, req.default_source_type)
+
+    if not documents:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid documents could be parsed from the request body.",
+        )
+
+    engine, store = _ensure_collection()
+    stored_ids: list[str] = []
+    failed = len(req.documents) - len(documents)
+
+    for doc in documents:
+        try:
+            result = engine.embed_document(doc)
+            metadata = extract_literature_metadata(doc)
+            store.upsert(doc.document_id, result.vector, metadata)
+            stored_ids.append(doc.document_id)
+        except Exception as exc:
+            logger.warning("Literature ingest: failed to embed/store '%s': %s", doc.title[:60], exc)
+            failed += 1
+
+    logger.info(
+        "retrieval/ingest/literature: %d stored, %d failed, source_types=%s",
+        len(stored_ids),
+        failed,
+        list({d.source_type for d in documents}),
+    )
+    return LiteratureIngestResult(
+        ingested=len(stored_ids),
+        failed=failed,
+        document_ids=stored_ids,
+        collection=store.collection_name,
+        dimension=engine.dimension,
+        note=(
+            f"Ingested {len(stored_ids)} document(s) as source_type="
+            + repr(req.default_source_type)
+            + ". Use source_type filter in /retrieval/search to query separately."
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Temporal analytics (Week 13)
+# ---------------------------------------------------------------------------
+
+
+class TrendBucket(BaseModel):
+    year: int | None
+    month: str | None
+    count: int
+    severity_distribution: dict[str, int]
+    incident_types: list[str]
+    source_types: list[str]
+
+
+class TrendsResponse(BaseModel):
+    total_records: int
+    incident_records: int
+    literature_records: int
+    buckets: list[TrendBucket]
+    top_incident_types: list[str]
+    severity_summary: dict[str, int]
+
+
+@router.post("/trends", response_model=TrendsResponse)
+async def retrieval_trends() -> TrendsResponse:
+    """Temporal and categorical analytics over all stored records.
+
+    Scans the full Qdrant collection and returns:
+    - Per year/month bucket: record count, severity distribution, incident types
+    - Global severity summary
+    - Top-5 incident type labels by frequency
+    - Breakdown of incident_reports vs literature documents
+
+    This endpoint powers trend detection and supports editorial planning
+    (e.g. "which months had the most high-severity incidents?").
+    """
+    try:
+        _, store = _ensure_collection()
+        all_records = store.scroll_all()
+    except Exception as exc:
+        logger.exception("Trends: scroll_all failed")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve records: {exc}")
+
+    if not all_records:
+        return TrendsResponse(
+            total_records=0,
+            incident_records=0,
+            literature_records=0,
+            buckets=[],
+            top_incident_types=[],
+            severity_summary={},
+        )
+
+    # Aggregate into (year, month) buckets
+    from collections import Counter, defaultdict
+
+    bucket_map: dict[tuple, dict] = defaultdict(
+        lambda: {"count": 0, "severity": Counter(), "types": set(), "source_types": set()}
+    )
+    severity_counter: Counter = Counter()
+    type_counter: Counter = Counter()
+    incident_count = 0
+    literature_count = 0
+
+    for record in all_records:
+        meta = record.get("metadata", {})
+        year = meta.get("year")
+        month = meta.get("month")
+        severity = meta.get("severity", "Unknown")
+        inc_types: list[str] = meta.get("incident_type", [])
+        src_type: str = meta.get("source_type", "incident_report")
+
+        if src_type == "incident_report":
+            incident_count += 1
+        else:
+            literature_count += 1
+
+        key = (year, month)
+        bucket_map[key]["count"] += 1
+        bucket_map[key]["severity"][severity] += 1
+        bucket_map[key]["types"].update(inc_types)
+        bucket_map[key]["source_types"].add(src_type)
+
+        severity_counter[severity] += 1
+        for t in inc_types:
+            type_counter[t] += 1
+
+    # Sort buckets: years descending, then months by name
+    _MONTH_ORDER = {
+        "January": 1, "February": 2, "March": 3, "April": 4,
+        "May": 5, "June": 6, "July": 7, "August": 8,
+        "September": 9, "October": 10, "November": 11, "December": 12,
+    }
+
+    def _bucket_sort_key(k: tuple) -> tuple:
+        yr, mo = k
+        return (-(yr or 0), _MONTH_ORDER.get(str(mo), 99))
+
+    sorted_keys = sorted(bucket_map.keys(), key=_bucket_sort_key)
+
+    buckets = [
+        TrendBucket(
+            year=k[0],
+            month=k[1],
+            count=bucket_map[k]["count"],
+            severity_distribution=dict(bucket_map[k]["severity"]),
+            incident_types=sorted(bucket_map[k]["types"]),
+            source_types=sorted(bucket_map[k]["source_types"]),
+        )
+        for k in sorted_keys
+    ]
+
+    top_types = [t for t, _ in type_counter.most_common(5)]
+
+    return TrendsResponse(
+        total_records=len(all_records),
+        incident_records=incident_count,
+        literature_records=literature_count,
+        buckets=buckets,
+        top_incident_types=top_types,
+        severity_summary=dict(severity_counter),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Anomaly detection (Week 14)
+# ---------------------------------------------------------------------------
+
+
+class AnomalyHit(BaseModel):
+    incident_id: str
+    outlier_score: float
+    severity: str
+    surgery_type: str
+    incident_type: list[str]
+    root_cause: str
+    source: str
+    reason: str
+
+
+class AnomalyRequest(BaseModel):
+    min_cluster_size: int = Field(3, ge=2, description="Minimum incidents per cluster")
+    auto_params: bool = Field(
+        False,
+        description="Auto-tune min_cluster_size as max(3, sqrt(n))",
+    )
+    top_n: int = Field(
+        20, ge=1, le=200,
+        description="Maximum anomalies to return (most anomalous first)",
+    )
+
+
+class AnomalyResponse(BaseModel):
+    total_incidents_analysed: int
+    n_clusters_found: int
+    n_anomalies: int
+    anomaly_ratio: float
+    anomalies: list[AnomalyHit]
+
+
+@router.post("/anomalies", response_model=AnomalyResponse)
+async def detect_anomalies(req: AnomalyRequest = Body(default=AnomalyRequest())) -> AnomalyResponse:
+    """Detect statistically unusual incidents using HDBSCAN noise-point labelling.
+
+    Incidents that cannot be assigned to any cluster (HDBSCAN label -1) are
+    considered anomalous — their combination of features (incident type,
+    surgical context, severity) does not match any peer group.
+
+    Only ``incident_report`` records are analysed; literature documents are
+    excluded automatically.
+
+    Results are ranked by outlier score (most anomalous first).
+
+    Example request body:
+    ```json
+    {"min_cluster_size": 3, "auto_params": true, "top_n": 10}
+    ```
+    """
+    try:
+        _, store = _ensure_collection()
+        all_records = store.scroll_all()
+
+        incident_records = [
+            r for r in all_records
+            if r.get("metadata", {}).get("source_type", "incident_report") == "incident_report"
+        ]
+
+        if not incident_records:
+            return AnomalyResponse(
+                total_incidents_analysed=0,
+                n_clusters_found=0,
+                n_anomalies=0,
+                anomaly_ratio=0.0,
+                anomalies=[],
+            )
+
+        from src.retrieval.anomaly_detector import AnomalyDetector
+
+        detector = AnomalyDetector(
+            min_cluster_size=req.min_cluster_size,
+            auto_params=req.auto_params,
+        )
+        result = detector.detect(
+            incident_ids=[r["incident_id"] for r in incident_records],
+            vectors=[r["vector"] for r in incident_records],
+            metadata_list=[r["metadata"] for r in incident_records],
+            top_n=req.top_n,
+        )
+
+        return AnomalyResponse(
+            total_incidents_analysed=result.total_incidents,
+            n_clusters_found=result.n_clusters,
+            n_anomalies=result.n_anomalies,
+            anomaly_ratio=result.anomaly_ratio,
+            anomalies=[
+                AnomalyHit(
+                    incident_id=a.incident_id,
+                    outlier_score=a.outlier_score,
+                    severity=a.severity,
+                    surgery_type=a.surgery_type,
+                    incident_type=a.incident_type,
+                    root_cause=a.root_cause,
+                    source=a.source,
+                    reason=a.reason,
+                )
+                for a in result.anomalies
+            ],
+        )
+    except Exception as e:
+        logger.exception("Anomaly detection failed")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# Pattern analysis (Week 14)
+# ---------------------------------------------------------------------------
+
+
+class PeriodStatsResponse(BaseModel):
+    period: str
+    year: int | None
+    month: str | None
+    count: int
+    dominant_types: list[str]
+    severity_distribution: dict[str, int]
+    rate_change_pct: float | None
+    avg_severity_weight: float
+
+
+class PatternResponse(BaseModel):
+    total_incidents: int
+    periods: list[PeriodStatsResponse]
+    trend_direction: str
+    acceleration: str
+    dominant_incident_types: list[str]
+    most_volatile_type: str | None
+    severity_trend: str
+    insight: str
+
+
+@router.post("/patterns", response_model=PatternResponse)
+async def analyse_patterns() -> PatternResponse:
+    """Temporal and categorical pattern analysis over stored incident records.
+
+    Aggregates all incident reports (literature excluded) by year/month and
+    computes:
+    - Per-period incident counts, dominant types, and severity distribution
+    - Month-over-month rate of change (%)
+    - Overall trend direction: ``increasing`` | ``decreasing`` | ``stable``
+    - Acceleration: whether the rate of change is itself changing
+    - The most volatile incident type (highest count variance across periods)
+    - Average severity weight trend (worsening / improving / stable)
+    - A one-sentence plain-text insight
+
+    No request body needed.
+    """
+    try:
+        _, store = _ensure_collection()
+        all_records = store.scroll_all()
+    except Exception as exc:
+        logger.exception("Patterns: scroll_all failed")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve records: {exc}")
+
+    from src.retrieval.pattern_analyzer import PatternAnalyzer
+
+    analyzer = PatternAnalyzer(exclude_literature=True)
+    result = analyzer.analyze(all_records)
+
+    return PatternResponse(
+        total_incidents=result.total_incidents,
+        periods=[
+            PeriodStatsResponse(
+                period=p.period,
+                year=p.year,
+                month=p.month,
+                count=p.count,
+                dominant_types=p.dominant_types,
+                severity_distribution=p.severity_distribution,
+                rate_change_pct=p.rate_change_pct,
+                avg_severity_weight=p.avg_severity_weight,
+            )
+            for p in result.periods
+        ],
+        trend_direction=result.trend_direction,
+        acceleration=result.acceleration,
+        dominant_incident_types=result.dominant_incident_types,
+        most_volatile_type=result.most_volatile_type,
+        severity_trend=result.severity_trend,
+        insight=result.insight,
+    )

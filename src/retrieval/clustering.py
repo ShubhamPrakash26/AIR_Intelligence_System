@@ -122,6 +122,7 @@ class IncidentClusteringEngine:
         umap_random_state: int = 42,
         umap_model: Any = None,
         hdbscan_model: Any = None,
+        auto_params: bool = False,
     ) -> None:
         self.min_cluster_size = min_cluster_size
         self.min_samples = min_samples
@@ -129,6 +130,7 @@ class IncidentClusteringEngine:
         self.umap_random_state = umap_random_state
         self._umap_model = umap_model
         self._hdbscan_model = hdbscan_model
+        self.auto_params = auto_params
 
     def cluster(
         self,
@@ -160,6 +162,13 @@ class IncidentClusteringEngine:
                 noise_ratio=1.0 if n else 0.0,
                 umap_coords=[],
             )
+
+        if self.auto_params:
+            import math
+            self.min_cluster_size = max(3, int(math.sqrt(n)))
+            self.min_samples = max(1, self.min_cluster_size - 1)
+            logger.info("auto_params: min_cluster_size=%d min_samples=%d (n=%d)",
+                        self.min_cluster_size, self.min_samples, n)
 
         X = np.array(vectors, dtype=np.float32)
 

@@ -177,6 +177,35 @@ class EmbeddingEngine:
             dimension=len(vector),
         )
 
+    def embed_document(
+        self,
+        document: "Any",
+    ) -> EmbeddingResult:
+        """Embed a LiteratureDocument and return an EmbeddingResult.
+
+        Uses ``document.embeddable_text`` (title + keywords + content) so the
+        vector captures the full semantic scope of the document.
+
+        Args:
+            document: A ``LiteratureDocument`` instance.
+
+        Returns:
+            EmbeddingResult with ``incident_id`` set to ``document.document_id``.
+        """
+        from src.models.literature import LiteratureDocument as _LitDoc
+        if not isinstance(document, _LitDoc):
+            raise TypeError(f"Expected LiteratureDocument, got {type(document).__name__}")
+
+        text = document.embeddable_text
+        vector = self.embed_text(text)
+        return EmbeddingResult(
+            incident_id=document.document_id,
+            text=text,
+            vector=vector,
+            model_name=self._model_name,
+            dimension=len(vector),
+        )
+
     def embed_incidents_batch(
         self,
         incidents: list[Incident],
